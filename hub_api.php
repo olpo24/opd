@@ -31,6 +31,7 @@ try {
 
             // Freescout Quick Stats
             // Freescout Offene Tickets abfragen
+           // Freescout Offene Tickets abfragen (active + pending)
             $fsOpenTickets = 0;
             try {
                 $stmtFs = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
@@ -39,7 +40,7 @@ try {
                     $baseUrl = rtrim($fsConfig['api_url'], '/');
                     $apiKey  = $fsConfig['api_key'];
 
-                    // 1. Mailboxen abrufen
+                    // 1. Postfächer abrufen
                     $ch = curl_init($baseUrl . '/mailboxes');
                     curl_setopt_array($ch, [
                         CURLOPT_RETURNTRANSFER => true,
@@ -52,8 +53,8 @@ try {
                     
                     if (!empty($mbData['_embedded']['mailboxes'])) {
                         foreach ($mbData['_embedded']['mailboxes'] as $mb) {
-                            // Freescout nutzt state=open (oder status=active), um alle unerledigten Tickets zu erfassen
-                            $chC = curl_init($baseUrl . "/conversations?mailboxId={$mb['id']}&state=open");
+                            // status=active,pending lädt alle offenen und wartenden Tickets
+                            $chC = curl_init($baseUrl . "/conversations?mailboxId={$mb['id']}&status=active,pending");
                             curl_setopt_array($chC, [
                                 CURLOPT_RETURNTRANSFER => true,
                                 CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
@@ -63,7 +64,6 @@ try {
                             $cRes = curl_exec($chC);
                             $cData = json_decode((string)$cRes, true);
 
-                            // Falls 'page' -> 'totalElements' vorhanden ist, nutzen
                             if (isset($cData['page']['totalElements'])) {
                                 $fsOpenTickets += (int)$cData['page']['totalElements'];
                             } elseif (!empty($cData['_embedded']['conversations'])) {
