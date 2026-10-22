@@ -245,9 +245,10 @@ function applyTheme(theme) {
     }
 }
 // FREESCOUT LOGIC
+// FREESCOUT LOGIC
 async function loadFreescoutData() {
-    const container = document.getElementById('freescout-mailboxes-container');
-    if (!container) return;
+    const tbody = document.getElementById('freescout-tickets-table-body');
+    if (!tbody) return;
 
     try {
         const res = await fetch('modules/freescout/api.php?action=get_summary');
@@ -255,50 +256,71 @@ async function loadFreescoutData() {
 
         if (response.status === 'success') {
             const data = response.data;
+            
+            // Widget-Zähler aktualisieren
             if (document.getElementById('hub-fs-open')) {
                 document.getElementById('hub-fs-open').textContent = data.total_open;
             }
 
-            container.innerHTML = '';
-            if (data.mailboxes.length === 0) {
-                container.innerHTML = '<p style="color:var(--text-muted);">Keine Postfächer gefunden oder API-Key ungültig.</p>';
+            tbody.innerHTML = '';
+
+            // Alle Konversationen aus allen Postfächern zusammenfassen
+            let allOpenTickets = [];
+            if (data.mailboxes && Array.isArray(data.mailboxes)) {
+                data.mailboxes.forEach(mb => {
+                    if (mb.conversations && Array.isArray(mb.conversations)) {
+                        mb.conversations.forEach(c => {
+                            allOpenTickets.push({
+                                ...c,
+                                mailboxName: mb.name
+                            });
+                        });
+                    }
+                });
+            }
+
+            if (allOpenTickets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--status-success-text); padding: 2rem;">✔ Keine offenen Tickets vorhanden.</td></tr>';
                 return;
             }
 
-            data.mailboxes.forEach(mb => {
-                const card = document.createElement('div');
-                card.style.cssText = 'background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;';
+            // Nach Datum sortieren (neueste zuerst)
+            allOpenTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-                let ticketsList = '';
-                if (mb.conversations.length > 0) {
-                    mb.conversations.forEach(c => {
-                        const ticketUrl = `https://support.olpo.de/conversation/${c.id}`;
-                        ticketsList += `
-                            <li style="padding: 0.4rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
-                                <a href="${ticketUrl}" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">
-                                    ${escapeHtml(c.subject || 'Kein Betreff')}
-                                </a>
-                                <span style="color: var(--text-muted); font-size: 0.75rem;">#${c.number}</span>
-                            </li>
-                        `;
-                    });
-                } else {
-                    ticketsList = '<li style="color: var(--status-success-text); font-size: 0.85rem; padding: 0.4rem 0;">✔ Keine offenen Tickets</li>';
-                }
+            allOpenTickets.forEach(t => {
+                const tr = document.createElement('tr');
+                const ticketUrl = `https://support.olpo.de/conversation/${t.id}`;
+                
+                // Kundenname/E-Mail aufbereiten
+                const customerName = t.customer 
+                    ? `${escapeHtml(t.customer.firstName || '')} ${escapeHtml(t.customer.lastName || '')}`.trim() || escapeHtml(t.customer.email)
+                    : 'Unbekannt';
 
-                card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                        <strong style="font-size: 0.95rem;">${escapeHtml(mb.name)}</strong>
-                        <span class="badge ${mb.open_tickets > 0 ? 'badge-updates' : 'badge-success'}">${mb.open_tickets} Offen</span>
-                    </div>
-                    <ul style="list-style: none; padding: 0; margin: 0;">${ticketsList}</ul>
+                const createdAtFormatted = t.createdAt 
+                    ? new Date(t.createdAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : '-';
+
+                tr.innerHTML = `
+                    <td><strong style="color:var(--text-muted);">#${t.number}</strong></td>
+                    <td>
+                        <a href="${ticketUrl}" target="_blank" style="color:var(--text-main); font-weight:600; text-decoration:none;">
+                            ${escapeHtml(t.subject || 'Kein Betreff')}
+                        </a>
+                        ${t.preview ? `<br><span style="color:var(--text-muted); font-size:0.75rem; display:inline-block; max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.preview)}</span>` : ''}
+                    </td>
+                    <td style="font-size:0.85rem; color:var(--text-main);">${customerName}</td>
+                    <td><span class="badge badge-zero">${escapeHtml(t.mailboxName)}</span></td>
+                    <td style="font-size:0.85rem; color:var(--text-muted);">${createdAtFormatted}</td>
+                    <td style="text-align: right;">
+                        <a href="${ticketUrl}" target="_blank" class="btn btn-sm">Öffnen &rarr;</a>
+                    </td>
                 `;
-
-                container.appendChild(card);
+                tbody.appendChild(tr);
             });
         }
     } catch (e) {
         console.error('Fehler beim Laden der Freescout Daten:', e);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--status-danger-text); padding: 2rem;">Fehler beim Laden der Tickets.</td></tr>';
     }
 }
 
