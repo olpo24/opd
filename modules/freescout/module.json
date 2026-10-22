@@ -1,0 +1,11 @@
+{
+  "id": "freescout",
+  "name": "Freescout",
+  "has_view": true,
+  "widget": {
+    "default_w": 4,
+    "default_h": 3,
+    "min_w": 3,
+    "min_h": 2
+  }
+}
