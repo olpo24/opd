@@ -38,21 +38,16 @@ async function loadHubSummary() {
         const response = await res.json();
 
         if (response.status === 'success') {
-            // 1. WP Widget Stats
-            const wpData = response.modules.wp_maintenance;
-            if (document.getElementById('hub-wp-sites')) document.getElementById('hub-wp-sites').textContent = wpData.sites;
-            if (document.getElementById('hub-wp-updates')) document.getElementById('hub-wp-updates').textContent = wpData.updates;
-            if (document.getElementById('hub-wp-vulns')) document.getElementById('hub-wp-vulns').textContent = wpData.vulnerabilities;
+            // Automatisch gerenderte Modul-Widgets befüllen
+            const modulesData = response.modules || {};
+            
+            // Event senden, damit alle geladenen Modul-Skripte ihre Widget-UI aktualisieren können
+            window.dispatchEvent(new CustomEvent('hubDataLoaded', { detail: modulesData }));
 
-            // 2. Freescout Widget Stat setzen (HIER WAR DIE LÜCKE)
-            if (response.modules.freescout && document.getElementById('hub-fs-open')) {
-                document.getElementById('hub-fs-open').textContent = response.modules.freescout.open_tickets;
-            }
-
-            // 3. Bookmarks & Gridstack Layouts
             allBookmarks = response.modules.bookmarks || [];
             renderCategoryPills();
             renderFilteredBookmarks();
+
             initGridstack(response.modules.layouts || {});
         }
     } catch (e) {
@@ -154,16 +149,10 @@ function renderFilteredBookmarks() {
 
     filtered.forEach(bm => {
         let domain = '';
-        try {
-            domain = new URL(bm.url).hostname;
-        } catch (e) {
-            domain = bm.url;
-        }
-
+        try { domain = new URL(bm.url).hostname; } catch (e) { domain = bm.url; }
         const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
 
         const item = document.createElement('div');
-        item.className = 'bookmark-item';
         item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: 8px; transition: border-color 0.15s ease;';
 
         item.innerHTML = `
@@ -178,7 +167,6 @@ function renderFilteredBookmarks() {
 
         item.addEventListener('mouseenter', () => item.style.borderColor = 'var(--primary)');
         item.addEventListener('mouseleave', () => item.style.borderColor = 'var(--border-color)');
-
         container.appendChild(item);
     });
 }
@@ -189,6 +177,7 @@ async function deleteBookmark(id) {
     loadHubSummary();
 }
 
+// GENERISCHER SEITENWECHSEL FÜR ALLE MODULE
 function switchView(viewName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.app-header .tab-btn').forEach(el => el.classList.remove('active'));
@@ -199,35 +188,28 @@ function switchView(viewName) {
     if (targetView) targetView.classList.add('active');
     if (targetBtn) targetBtn.classList.add('active');
 
-    if (viewName === 'wp' && typeof loadSites === 'function') {
-        loadSites();
+    // Modul-Event absenden, wenn Ansicht geöffnet wird
+    window.dispatchEvent(new CustomEvent('hubViewSwitched', { detail: { view: viewName } }));
+
+    if (viewName === 'hub') {
+        if (grid) grid.onParentResize();
+        loadHubSummary();
     }
 }
 
-function openAddBookmarkModal() {
-    document.getElementById('bookmark-modal')?.classList.add('active');
-}
+function openAddBookmarkModal() { document.getElementById('bookmark-modal')?.classList.add('active'); }
+function closeBookmarkModal() { document.getElementById('bookmark-modal')?.classList.remove('active'); }
+function escapeHtml(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-function closeBookmarkModal() {
-    document.getElementById('bookmark-modal')?.classList.remove('active');
-}
-
-function escapeHtml(str) {
-    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// COLOR SCHEME TOGGLE LOGIC
 const sunIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const moonIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
 function initTheme() {
     const toggleBtn = document.getElementById('theme-toggle');
     if (!toggleBtn) return;
-
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     let currentTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
-
     applyTheme(currentTheme);
 
     toggleBtn.addEventListener('click', () => {
@@ -240,95 +222,5 @@ function initTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const toggleBtn = document.getElementById('theme-toggle');
-    if (toggleBtn) {
-        toggleBtn.innerHTML = (theme === 'dark') ? sunIcon : moonIcon;
-    }
+    if (toggleBtn) toggleBtn.innerHTML = (theme === 'dark') ? sunIcon : moonIcon;
 }
-// FREESCOUT LOGIC
-// FREESCOUT LOGIC
-async function loadFreescoutData() {
-    const tbody = document.getElementById('freescout-tickets-table-body');
-    if (!tbody) return;
-
-    try {
-        const res = await fetch('modules/freescout/api.php?action=get_summary');
-        const response = await res.json();
-
-        if (response.status === 'success') {
-            const data = response.data;
-            
-            // Widget-Zähler aktualisieren
-            if (document.getElementById('hub-fs-open')) {
-                document.getElementById('hub-fs-open').textContent = data.total_open;
-            }
-
-            tbody.innerHTML = '';
-
-            // Alle Konversationen aus allen Postfächern zusammenfassen
-            let allOpenTickets = [];
-            if (data.mailboxes && Array.isArray(data.mailboxes)) {
-                data.mailboxes.forEach(mb => {
-                    if (mb.conversations && Array.isArray(mb.conversations)) {
-                        mb.conversations.forEach(c => {
-                            allOpenTickets.push({
-                                ...c,
-                                mailboxName: mb.name
-                            });
-                        });
-                    }
-                });
-            }
-
-            if (allOpenTickets.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--status-success-text); padding: 2rem;">✔ Keine offenen Tickets vorhanden.</td></tr>';
-                return;
-            }
-
-            // Nach Datum sortieren (neueste zuerst)
-            allOpenTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-            allOpenTickets.forEach(t => {
-                const tr = document.createElement('tr');
-                const ticketUrl = `https://support.olpo.de/conversation/${t.id}`;
-                
-                // Kundenname/E-Mail aufbereiten
-                const customerName = t.customer 
-                    ? `${escapeHtml(t.customer.firstName || '')} ${escapeHtml(t.customer.lastName || '')}`.trim() || escapeHtml(t.customer.email)
-                    : 'Unbekannt';
-
-                const createdAtFormatted = t.createdAt 
-                    ? new Date(t.createdAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                    : '-';
-
-                tr.innerHTML = `
-                    <td><strong style="color:var(--text-muted);">#${t.number}</strong></td>
-                    <td>
-                        <a href="${ticketUrl}" target="_blank" style="color:var(--text-main); font-weight:600; text-decoration:none;">
-                            ${escapeHtml(t.subject || 'Kein Betreff')}
-                        </a>
-                        ${t.preview ? `<br><span style="color:var(--text-muted); font-size:0.75rem; display:inline-block; max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.preview)}</span>` : ''}
-                    </td>
-                    <td style="font-size:0.85rem; color:var(--text-main);">${customerName}</td>
-                    <td><span class="badge badge-zero">${escapeHtml(t.mailboxName)}</span></td>
-                    <td style="font-size:0.85rem; color:var(--text-muted);">${createdAtFormatted}</td>
-                    <td style="text-align: right;">
-                        <a href="${ticketUrl}" target="_blank" class="btn btn-sm">Öffnen &rarr;</a>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-    } catch (e) {
-        console.error('Fehler beim Laden der Freescout Daten:', e);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--status-danger-text); padding: 2rem;">Fehler beim Laden der Tickets.</td></tr>';
-    }
-}
-
-// Beim Umschalten auf die Freescout-View automatisch laden
-const originalSwitchView = window.switchView;
-window.switchView = function(viewName) {
-    if (typeof originalSwitchView === 'function') originalSwitchView(viewName);
-    if (viewName === 'freescout') {
-        loadFreescoutData();
-    }
-};
