@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
+ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../../db.php';
@@ -16,70 +16,91 @@ if (empty($_SESSION['user_id'])) {
 }
 
 $pdo = Database::getConnection();
+$action = $_GET['action'] ?? '';
 
-// URL von https://support.olpo.de/api/v1 auf https://support.olpo.de/api bereinigen
-$stmt = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
-$config = $stmt->fetch();
+try {
+    switch ($action) {
+        case 'get_summary':
+            $stmt = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
+            $config = $stmt->fetch();
 
-$rawUrl = $config['api_url'] ?? 'https://support.olpo.de/api';
-$cleanUrl = preg_replace('/\/v1\/?$/', '', rtrim($rawUrl, '/'));
-if (!str_ends_with($cleanUrl, '/api')) {
-    $cleanUrl = rtrim($cleanUrl, '/') . '/api';
+            if (!$config || empty($config['api_key'])) {
+                echo json_encode(['status' => 'success', 'data' => ['total_open' => 0, 'mailboxes' => []]]);
+                exit;
+            }
+
+            $baseUrl = preg_replace('/\/v1\/?$/', '', rtrim($config['api_url'], '/'));
+            if (!str_ends_with($baseUrl, '/api')) {
+                $baseUrl = rtrim($baseUrl, '/') . '/api';
+            }
+            $apiKey = $config['api_key'];
+
+            // 1. Postfächer laden
+            $mailboxesData = freescoutRequest($baseUrl, $apiKey, '/mailboxes');
+            $mailboxes = $mailboxesData['_embedded']['mailboxes'] ?? [];
+
+            // 2. Offene & schwebende Konversationen laden
+            $convData = freescoutRequest($baseUrl, $apiKey, '/conversations?status=active,pending');
+            $allConvs = $convData['_embedded']['conversations'] ?? [];
+
+            // Nur veröffentlichte (nicht gelöschte) Tickets gruppieren
+            $groupedByMailbox = [];
+            $totalOpen = 0;
+
+            foreach ($allConvs as $c) {
+                if (($c['state'] ?? '') === 'published') {
+                    $mbId = $c['mailboxId'] ?? 0;
+                    $groupedByMailbox[$mbId][] = $c;
+                    $totalOpen++;
+                }
+            }
+
+            $mailboxSummaries = [];
+            foreach ($mailboxes as $mb) {
+                $mbId = $mb['id'];
+                $mbConvs = $groupedByMailbox[$mbId] ?? [];
+
+                $mailboxSummaries[] = [
+                    'id'            => $mbId,
+                    'name'          => $mb['name'],
+                    'open_tickets'  => count($mbConvs),
+                    'conversations' => array_slice($mbConvs, 0, 5)
+                ];
+            }
+
+            echo json_encode([
+                'status' => 'success',
+                'data'   => [
+                    'total_open' => $totalOpen,
+                    'mailboxes'  => $mailboxSummaries
+                ]
+            ]);
+            break;
+
+        default:
+            echo json_encode(['status' => 'error', 'message' => 'Ungültige Aktion']);
+    }
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 
-$apiKey = $config['api_key'] ?? '';
+function freescoutRequest(string $baseUrl, string $apiKey, string $endpoint): array
+{
+    $ch = curl_init($baseUrl . $endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => [
+            'X-FreeScout-API-Key: ' . $apiKey,
+            'Accept: application/json'
+        ],
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_SSL_VERIFYPEER => false
+    ]);
 
-// Test A: API Key über Header (X-FreeScout-API-Key) auf /api/mailboxes
-$chA = curl_init($cleanUrl . '/mailboxes');
-curl_setopt_array($chA, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER     => [
-        'X-FreeScout-API-Key: ' . $apiKey,
-        'Accept: application/json'
-    ],
-    CURLOPT_TIMEOUT        => 8,
-    CURLOPT_SSL_VERIFYPEER => false,
-    CURLOPT_FOLLOWLOCATION => true
-]);
-$resA = curl_exec($chA);
-$codeA = curl_getinfo($chA, CURLINFO_HTTP_CODE);
-
-// Test B: API Key als GET-Parameter ?api_key=... auf /api/mailboxes
-$chB = curl_init($cleanUrl . '/mailboxes?api_key=' . urlencode($apiKey));
-curl_setopt_array($chB, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER     => ['Accept: application/json'],
-    CURLOPT_TIMEOUT        => 8,
-    CURLOPT_SSL_VERIFYPEER => false,
-    CURLOPT_FOLLOWLOCATION => true
-]);
-$resB = curl_exec($chB);
-$codeB = curl_getinfo($chB, CURLINFO_HTTP_CODE);
-
-// Test C: Conversations abrufen mit ?api_key=...
-$chC = curl_init($cleanUrl . '/conversations?api_key=' . urlencode($apiKey));
-curl_setopt_array($chC, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER     => ['Accept: application/json'],
-    CURLOPT_TIMEOUT        => 8,
-    CURLOPT_SSL_VERIFYPEER => false,
-    CURLOPT_FOLLOWLOCATION => true
-]);
-$resC = curl_exec($chC);
-$codeC = curl_getinfo($chC, CURLINFO_HTTP_CODE);
-
-echo json_encode([
-    'url_tested' => $cleanUrl,
-    'test_header' => [
-        'http_code' => $codeA,
-        'response'  => json_decode((string)$resA, true) ?? $resA
-    ],
-    'test_get_param_mailboxes' => [
-        'http_code' => $codeB,
-        'response'  => json_decode((string)$resB, true) ?? $resB
-    ],
-    'test_get_param_conversations' => [
-        'http_code' => $codeC,
-        'response'  => json_decode((string)$resC, true) ?? $resC
-    ]
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    $res = curl_exec($ch);
+    if (curl_errno($ch)) {
+        return [];
+    }
+    return json_decode((string)$res, true) ?? [];
+}
