@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '0');
+ini_set('display_errors', '1');
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../../db.php';
@@ -9,106 +9,67 @@ require_once __DIR__ . '/../../auth.php';
 
 header('Content-Type: application/json');
 
-// Webhooks von Freescout ohne Session erlauben
-$action = $_GET['action'] ?? '';
-
-if ($action !== 'webhook' && empty($_SESSION['user_id'])) {
+if (empty($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['status' => 'error', 'message' => 'Nicht angemeldet']);
     exit;
 }
 
 $pdo = Database::getConnection();
+$action = $_GET['action'] ?? 'debug';
 
-try {
-    switch ($action) {
-        case 'get_summary':
-            $stmt = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
-            $config = $stmt->fetch();
+if ($action === 'debug') {
+    $stmt = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
+    $config = $stmt->fetch();
 
-            if (!$config || empty($config['api_key'])) {
-                echo json_encode(['status' => 'success', 'data' => ['total_open' => 0, 'mailboxes' => []]]);
-                exit;
-            }
-
-            $baseUrl = rtrim($config['api_url'], '/');
-            $apiKey  = $config['api_key'];
-
-            // 1. Postfächer abrufen
-            $mailboxes = freescoutApiRequest($baseUrl, $apiKey, '/mailboxes');
-            $mailboxesData = $mailboxes['_embedded']['mailboxes'] ?? [];
-
-            // 2. Alle aktiven/pendenden Tickets abrufen
-            $allConvs = freescoutApiRequest($baseUrl, $apiKey, '/conversations?status=active,pending');
-            $conversationsList = $allConvs['_embedded']['conversations'] ?? [];
-            $totalOpen = $allConvs['page']['totalElements'] ?? count($conversationsList);
-
-            // Conversations nach Mailbox ID gruppieren
-            $groupedByMailbox = [];
-            foreach ($conversationsList as $c) {
-                $mbId = $c['mailboxId'] ?? 0;
-                $groupedByMailbox[$mbId][] = $c;
-            }
-
-            $mailboxSummaries = [];
-            foreach ($mailboxesData as $mb) {
-                $mbId = $mb['id'];
-                $mbConvs = $groupedByMailbox[$mbId] ?? [];
-
-                $mailboxSummaries[] = [
-                    'id' => $mbId,
-                    'name' => $mb['name'],
-                    'open_tickets' => count($mbConvs),
-                    'conversations' => array_slice($mbConvs, 0, 5)
-                ];
-            }
-
-            echo json_encode([
-                'status' => 'success',
-                'data' => [
-                    'total_open' => $totalOpen,
-                    'mailboxes' => $mailboxSummaries
-                ]
-            ]);
-            break;
-
-        case 'webhook':
-            // Optionaler Webhook-Empfänger für Freescout Events
-            $payload = file_get_contents('php://input');
-            // Hier kann bei Bedarf ein Cache-Invalidation Event getriggert werden
-            echo json_encode(['status' => 'ok']);
-            break;
-
-        default:
-            echo json_encode(['status' => 'error', 'message' => 'Ungültige Aktion']);
+    if (!$config) {
+        echo json_encode(['error' => 'Keine Config in DB gefunden']);
+        exit;
     }
-} catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-}
 
-function freescoutApiRequest(string $baseUrl, string $apiKey, string $endpoint): array
-{
-    $url = rtrim($baseUrl, '/') . $endpoint;
-    $ch = curl_init($url);
+    $baseUrl = rtrim($config['api_url'], '/');
+    $apiKey  = $config['api_key'];
 
-    curl_setopt_array($ch, [
+    // 1. Test: Mailboxen
+    $chMb = curl_init($baseUrl . '/mailboxes');
+    curl_setopt_array($chMb, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => [
-            'X-FreeScout-API-KEY: ' . $apiKey,
-            'Accept: application/json'
-        ],
+        CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
         CURLOPT_TIMEOUT        => 8,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_FOLLOWLOCATION => true
+        CURLOPT_SSL_VERIFYPEER => false
     ]);
+    $resMb = curl_exec($chMb);
+    $httpMb = curl_getinfo($chMb, CURLINFO_HTTP_CODE);
+    $errMb = curl_error($chMb);
 
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    // 2. Test: Conversations (ohne Filter)
+    $chConv = curl_init($baseUrl . '/conversations');
+    curl_setopt_array($chConv, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_SSL_VERIFYPEER => false
+    ]);
+    $resConv = curl_exec($chConv);
+    $httpConv = curl_getinfo($chConv, CURLINFO_HTTP_CODE);
+    $errConv = curl_error($chConv);
 
-    if (curl_errno($ch) || $httpCode !== 200) {
-        return [];
-    }
-
-    return json_decode((string)$response, true) ?? [];
+    echo json_encode([
+        'config_used' => [
+            'api_url' => $baseUrl,
+            'api_key_length' => strlen($apiKey),
+            'api_key_snippet' => substr($apiKey, 0, 6) . '...'
+        ],
+        'mailboxes_test' => [
+            'http_code' => $httpMb,
+            'curl_error' => $errMb,
+            'response' => json_decode((string)$resMb, true) ?? $resMb
+        ],
+        'conversations_test' => [
+            'http_code' => $httpConv,
+            'curl_error' => $errConv,
+            'response' => json_decode((string)$resConv, true) ?? $resConv
+        ]
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
 }
