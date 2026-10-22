@@ -216,10 +216,23 @@ Auth::check();
                     </div>
                 </div>
 
-               <!-- VIEW 3: FREESCOUT MODULE -->
-<div id="view-freescout" class="tab-content">
-    <?php include __DIR__ . '/modules/freescout/view.php'; ?>
-</div>
+                    <!-- WIDGET 2: FREESCOUT HELPDESK -->
+                <div class="grid-stack-item" gs-id="widget_freescout" gs-x="4" gs-y="0" gs-w="4" gs-h="3" gs-min-w="3" gs-min-h="2">
+                    <div class="grid-stack-item-content">
+                        <div class="widget-title">
+                            <span>Freescout Helpdesk</span>
+                            <button class="btn btn-sm btn-secondary" onclick="switchView('freescout')">Öffnen &rarr;</button>
+                        </div>
+                        <div class="widget-body">
+                            <div class="metric-group">
+                                <div class="metric-box">
+                                    <div class="metric-val" id="hub-fs-open">0</div>
+                                    <div class="metric-lbl">Offene Tickets</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- WIDGET 3: BOOKMARKS & QUICK LINKS -->
                 <div class="grid-stack-item" gs-id="widget_bookmarks" gs-x="0" gs-y="3" gs-w="8" gs-h="4" gs-min-w="4" gs-min-h="3">
