@@ -277,14 +277,9 @@ Auth::check();
             <?php include __DIR__ . '/modules/wp_maintenance/view.php'; ?>
         </div>
 
-        <!-- VIEW 3: FREESCOUT MODULE -->
-        <div id="view-freescout" class="tab-content">
-            <div class="card" style="padding: 1.5rem;">
-                <h3 style="margin-top: 0;">Freescout Tickets Integration</h3>
-                <p style="color: var(--text-muted);">In Kürze: Hier schicken wir deinen Freescout API-Key und binden deine Kundentickets ein.</p>
-            </div>
-        </div>
-    </div>
+   <div id="view-freescout" class="tab-content">
+    <?php include __DIR__ . '/modules/freescout/view.php'; ?>
+</div>
 
     <!-- BOOKMARK ADD MODAL -->
     <div id="bookmark-modal" class="modal-overlay">
