@@ -21,47 +21,30 @@ $pdo = Database::getConnection();
 try {
     switch ($action) {
         case 'get_widgets_summary':
-            try {
-                $wpSitesCount   = (int)$pdo->query("SELECT COUNT(*) FROM sites")->fetchColumn();
-                $wpUpdatesCount = (int)$pdo->query("SELECT COUNT(*) FROM site_updates")->fetchColumn();
-                $wpVulnCount    = (int)$pdo->query("SELECT COUNT(*) FROM site_vulnerabilities")->fetchColumn();
-            } catch (Throwable $e) {
-                $wpSitesCount = 0; $wpUpdatesCount = 0; $wpVulnCount = 0;
-            }
+            $moduleSummaries = [];
 
-            // Freescout Quick Stats
-           // Freescout Offene Tickets abfragen (nur echte 'published' Tickets)
-            $fsOpenTickets = 0;
-            try {
-                $stmtFs = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
-                $fsConfig = $stmtFs->fetch();
-                if ($fsConfig && !empty($fsConfig['api_key'])) {
-                    $baseUrl = preg_replace('/\/v1\/?$/', '', rtrim($fsConfig['api_url'], '/'));
-                    if (!str_ends_with($baseUrl, '/api')) {
-                        $baseUrl = rtrim($baseUrl, '/') . '/api';
-                    }
-                    $apiKey = $fsConfig['api_key'];
-
-                    $ch = curl_init($baseUrl . '/conversations?status=active,pending');
-                    curl_setopt_array($ch, [
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_HTTPHEADER     => ['X-FreeScout-API-Key: ' . $apiKey, 'Accept: application/json'],
-                        CURLOPT_TIMEOUT        => 5,
-                        CURLOPT_SSL_VERIFYPEER => false
-                    ]);
-                    $res = curl_exec($ch);
-                    $cData = json_decode((string)$res, true);
-
-                    $conversations = $cData['_embedded']['conversations'] ?? [];
-                    foreach ($conversations as $c) {
-                        // Zähle nur Tickets, die veröffentlicht (nicht gelöscht/spam) sind
-                        if (($c['state'] ?? '') === 'published') {
-                            $fsOpenTickets++;
-                        }
+            // Alle Module abfragen, die eine api.php bereitstellen
+            $moduleDirs = glob(__DIR__ . '/modules/*', GLOB_ONLYDIR);
+            foreach ($moduleDirs as $dir) {
+                $modName = basename($dir);
+                $apiFile = $dir . '/api.php';
+                
+                if (file_exists($apiFile)) {
+                    // Interner Hook für Modul-Zusammenfassungen
+                    $_GET['action'] = 'get_summary_internal';
+                    ob_start();
+                    include $apiFile;
+                    $rawJson = ob_get_clean();
+                    
+                    $data = json_decode((string)$rawJson, true);
+                    if (isset($data['status']) && $data['status'] === 'success') {
+                        $moduleSummaries[$modName] = $data['data'];
                     }
                 }
-            } catch (Throwable $e) {}            
-        $bookmarks = [];
+            }
+
+            // Bookmarks & Dashboard-Layouts
+            $bookmarks = [];
             try {
                 $bookmarks = $pdo->query("SELECT * FROM module_bookmarks ORDER BY category ASC, position_order ASC, title ASC")->fetchAll();
             } catch (Throwable $e) {}
@@ -78,19 +61,10 @@ try {
             } catch (Throwable $e) {}
 
             echo json_encode([
-                'status' => 'success',
-                'modules' => [
-                    'wp_maintenance' => [
-                        'sites'           => $wpSitesCount,
-                        'updates'         => $wpUpdatesCount,
-                        'vulnerabilities' => $wpVulnCount
-                    ],
-                    'freescout' => [
-                        'open_tickets'    => $fsOpenTickets
-                    ],
-                    'bookmarks' => $bookmarks,
-                    'layouts'   => $layouts
-                ]
+                'status'  => 'success',
+                'modules' => $moduleSummaries,
+                'bookmarks' => $bookmarks,
+                'layouts'   => $layouts
             ]);
             break;
 
@@ -161,9 +135,6 @@ try {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 
-/**
- * Lädt den HTML-Header einer URL und extrahiert den Inhalt des <title>-Tags
- */
 function fetchPageTitle(string $url): string
 {
     if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
@@ -188,10 +159,7 @@ function fetchPageTitle(string $url): string
             $title = trim($matches[1]);
             $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $title = preg_replace('/\s+/', ' ', $title);
-            
-            if (!empty($title)) {
-                return $title;
-            }
+            if (!empty($title)) return $title;
         }
     }
 
