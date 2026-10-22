@@ -30,34 +30,38 @@ try {
             }
 
             // Freescout Quick Stats
-           // Freescout Offene Tickets abfragen (Accountweit)
+           // Freescout Offene Tickets abfragen (nur echte 'published' Tickets)
             $fsOpenTickets = 0;
             try {
                 $stmtFs = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
                 $fsConfig = $stmtFs->fetch();
                 if ($fsConfig && !empty($fsConfig['api_key'])) {
-                    $baseUrl = rtrim($fsConfig['api_url'], '/');
-                    $apiKey  = $fsConfig['api_key'];
+                    $baseUrl = preg_replace('/\/v1\/?$/', '', rtrim($fsConfig['api_url'], '/'));
+                    if (!str_ends_with($baseUrl, '/api')) {
+                        $baseUrl = rtrim($baseUrl, '/') . '/api';
+                    }
+                    $apiKey = $fsConfig['api_key'];
 
-                    // Ruft alle aktiven Konversationen direkt ab
                     $ch = curl_init($baseUrl . '/conversations?status=active,pending');
                     curl_setopt_array($ch, [
                         CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
+                        CURLOPT_HTTPHEADER     => ['X-FreeScout-API-Key: ' . $apiKey, 'Accept: application/json'],
                         CURLOPT_TIMEOUT        => 5,
                         CURLOPT_SSL_VERIFYPEER => false
                     ]);
                     $res = curl_exec($ch);
                     $cData = json_decode((string)$res, true);
 
-                    if (isset($cData['page']['totalElements'])) {
-                        $fsOpenTickets = (int)$cData['page']['totalElements'];
-                    } elseif (!empty($cData['_embedded']['conversations'])) {
-                        $fsOpenTickets = count($cData['_embedded']['conversations']);
+                    $conversations = $cData['_embedded']['conversations'] ?? [];
+                    foreach ($conversations as $c) {
+                        // Zähle nur Tickets, die veröffentlicht (nicht gelöscht/spam) sind
+                        if (($c['state'] ?? '') === 'published') {
+                            $fsOpenTickets++;
+                        }
                     }
                 }
-            } catch (Throwable $e) {}
-            $bookmarks = [];
+            } catch (Throwable $e) {}            
+        $bookmarks = [];
             try {
                 $bookmarks = $pdo->query("SELECT * FROM module_bookmarks ORDER BY category ASC, position_order ASC, title ASC")->fetchAll();
             } catch (Throwable $e) {}
