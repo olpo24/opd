@@ -1,0 +1,8 @@
+# Sensible Konfigurationsdateien ignorieren
+config.php
+
+# Betriebssystem- & IDE-Dateien
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
