@@ -41,8 +41,8 @@ try {
                 $mbId = $mb['id'];
                 $mbName = $mb['name'];
 
-                // Abruf mit state=open für alle ungelösten/offenen Tickets
-                $conversations = freescoutApiRequest($config['api_url'], $config['api_key'], "/conversations?mailboxId={$mbId}&state=open");
+                // Abruf aller nicht-geschlossenen Tickets (active & pending)
+                $conversations = freescoutApiRequest($config['api_url'], $config['api_key'], "/conversations?mailboxId={$mbId}&status=active,pending");
                 $openCount = $conversations['page']['totalElements'] ?? count($conversations['_embedded']['conversations'] ?? []);
 
                 $totalOpen += $openCount;
