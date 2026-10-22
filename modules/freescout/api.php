@@ -31,27 +31,35 @@ try {
                 exit;
             }
 
-            $mailboxes = freescoutApiRequest($config['api_url'], $config['api_key'], '/mailboxes');
+            $baseUrl = rtrim($config['api_url'], '/');
+            $apiKey  = $config['api_key'];
+
+            // 1. Postfächer abrufen
+            $mailboxes = freescoutApiRequest($baseUrl, $apiKey, '/mailboxes');
             $mailboxesData = $mailboxes['_embedded']['mailboxes'] ?? [];
 
-            $totalOpen = 0;
-            $mailboxSummaries = [];
+            // 2. Alle aktiven/pendenden Tickets abrufen
+            $allConvs = freescoutApiRequest($baseUrl, $apiKey, '/conversations?status=active,pending');
+            $conversationsList = $allConvs['_embedded']['conversations'] ?? [];
+            $totalOpen = $allConvs['page']['totalElements'] ?? count($conversationsList);
 
+            // Conversations nach Mailbox ID gruppieren
+            $groupedByMailbox = [];
+            foreach ($conversationsList as $c) {
+                $mbId = $c['mailboxId'] ?? 0;
+                $groupedByMailbox[$mbId][] = $c;
+            }
+
+            $mailboxSummaries = [];
             foreach ($mailboxesData as $mb) {
                 $mbId = $mb['id'];
-                $mbName = $mb['name'];
-
-                // Abruf aller nicht-geschlossenen Tickets (active & pending)
-                $conversations = freescoutApiRequest($config['api_url'], $config['api_key'], "/conversations?mailboxId={$mbId}&status=active,pending");
-                $openCount = $conversations['page']['totalElements'] ?? count($conversations['_embedded']['conversations'] ?? []);
-
-                $totalOpen += $openCount;
+                $mbConvs = $groupedByMailbox[$mbId] ?? [];
 
                 $mailboxSummaries[] = [
                     'id' => $mbId,
-                    'name' => $mbName,
-                    'open_tickets' => $openCount,
-                    'conversations' => array_slice($conversations['_embedded']['conversations'] ?? [], 0, 5)
+                    'name' => $mb['name'],
+                    'open_tickets' => count($mbConvs),
+                    'conversations' => array_slice($mbConvs, 0, 5)
                 ];
             }
 
