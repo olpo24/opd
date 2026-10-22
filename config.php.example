@@ -1,0 +1,9 @@
+<?php
+declare(strict_types=1);
+
+// Vorlage für die Konfiguration - Echtdaten nur in config.php eintragen!
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'deine_datenbank');
+define('DB_USER', 'dein_benutzer');
+define('DB_PASS', 'dein_passwort');
+define('DB_CHARSET', 'utf8mb4');
