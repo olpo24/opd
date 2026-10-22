@@ -1,0 +1,11 @@
+{
+  "id": "bookmarks",
+  "name": "Bookmarks",
+  "has_view": false,
+  "widget": {
+    "default_w": 8,
+    "default_h": 4,
+    "min_w": 4,
+    "min_h": 3
+  }
+}
