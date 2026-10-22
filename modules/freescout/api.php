@@ -17,60 +17,69 @@ if (empty($_SESSION['user_id'])) {
 
 $pdo = Database::getConnection();
 
+// URL von https://support.olpo.de/api/v1 auf https://support.olpo.de/api bereinigen
 $stmt = $pdo->query("SELECT api_url, api_key FROM module_freescout LIMIT 1");
 $config = $stmt->fetch();
 
-$baseUrl = rtrim($config['api_url'], '/');
-$apiKey  = $config['api_key'];
+$rawUrl = $config['api_url'] ?? 'https://support.olpo.de/api';
+$cleanUrl = preg_replace('/\/v1\/?$/', '', rtrim($rawUrl, '/'));
+if (!str_ends_with($cleanUrl, '/api')) {
+    $cleanUrl = rtrim($cleanUrl, '/') . '/api';
+}
 
-// Test 1: Standard GET
-$ch1 = curl_init($baseUrl . '/mailboxes');
-curl_setopt_array($ch1, [
+$apiKey = $config['api_key'] ?? '';
+
+// Test A: API Key über Header (X-FreeScout-API-Key) auf /api/mailboxes
+$chA = curl_init($cleanUrl . '/mailboxes');
+curl_setopt_array($chA, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
+    CURLOPT_HTTPHEADER     => [
+        'X-FreeScout-API-Key: ' . $apiKey,
+        'Accept: application/json'
+    ],
     CURLOPT_TIMEOUT        => 8,
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_FOLLOWLOCATION => true
 ]);
-$res1 = curl_exec($ch1);
-$code1 = curl_getinfo($ch1, CURLINFO_HTTP_CODE);
+$resA = curl_exec($chA);
+$codeA = curl_getinfo($chA, CURLINFO_HTTP_CODE);
 
-// Test 2: Mit Slash am Ende
-$ch2 = curl_init($baseUrl . '/mailboxes/');
-curl_setopt_array($ch2, [
+// Test B: API Key als GET-Parameter ?api_key=... auf /api/mailboxes
+$chB = curl_init($cleanUrl . '/mailboxes?api_key=' . urlencode($apiKey));
+curl_setopt_array($chB, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
+    CURLOPT_HTTPHEADER     => ['Accept: application/json'],
     CURLOPT_TIMEOUT        => 8,
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_FOLLOWLOCATION => true
 ]);
-$res2 = curl_exec($ch2);
-$code2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+$resB = curl_exec($chB);
+$codeB = curl_getinfo($chB, CURLINFO_HTTP_CODE);
 
-// Test 3: Explizit GET + Slash
-$ch3 = curl_init($baseUrl . '/conversations/');
-curl_setopt_array($ch3, [
+// Test C: Conversations abrufen mit ?api_key=...
+$chC = curl_init($cleanUrl . '/conversations?api_key=' . urlencode($apiKey));
+curl_setopt_array($chC, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_CUSTOMREQUEST  => 'GET',
-    CURLOPT_HTTPHEADER     => ['X-FreeScout-API-KEY: ' . $apiKey, 'Accept: application/json'],
+    CURLOPT_HTTPHEADER     => ['Accept: application/json'],
     CURLOPT_TIMEOUT        => 8,
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_FOLLOWLOCATION => true
 ]);
-$res3 = curl_exec($ch3);
-$code3 = curl_getinfo($ch3, CURLINFO_HTTP_CODE);
+$resC = curl_exec($chC);
+$codeC = curl_getinfo($chC, CURLINFO_HTTP_CODE);
 
 echo json_encode([
-    'test_without_slash' => [
-        'http_code' => $code1,
-        'response'  => json_decode((string)$res1, true) ?? $res1
+    'url_tested' => $cleanUrl,
+    'test_header' => [
+        'http_code' => $codeA,
+        'response'  => json_decode((string)$resA, true) ?? $resA
     ],
-    'test_with_slash' => [
-        'http_code' => $code2,
-        'response'  => json_decode((string)$res2, true) ?? $res2
+    'test_get_param_mailboxes' => [
+        'http_code' => $codeB,
+        'response'  => json_decode((string)$resB, true) ?? $resB
     ],
-    'test_conversations_with_slash' => [
-        'http_code' => $code3,
-        'response'  => json_decode((string)$res3, true) ?? $res3
+    'test_get_param_conversations' => [
+        'http_code' => $codeC,
+        'response'  => json_decode((string)$resC, true) ?? $resC
     ]
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
