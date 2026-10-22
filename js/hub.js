@@ -238,3 +238,69 @@ function applyTheme(theme) {
         toggleBtn.innerHTML = (theme === 'dark') ? sunIcon : moonIcon;
     }
 }
+// FREESCOUT LOGIC
+async function loadFreescoutData() {
+    const container = document.getElementById('freescout-mailboxes-container');
+    if (!container) return;
+
+    try {
+        const res = await fetch('modules/freescout/api.php?action=get_summary');
+        const response = await res.json();
+
+        if (response.status === 'success') {
+            const data = response.data;
+            if (document.getElementById('hub-fs-open')) {
+                document.getElementById('hub-fs-open').textContent = data.total_open;
+            }
+
+            container.innerHTML = '';
+            if (data.mailboxes.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted);">Keine Postfächer gefunden oder API-Key ungültig.</p>';
+                return;
+            }
+
+            data.mailboxes.forEach(mb => {
+                const card = document.createElement('div');
+                card.style.cssText = 'background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;';
+
+                let ticketsList = '';
+                if (mb.conversations.length > 0) {
+                    mb.conversations.forEach(c => {
+                        const ticketUrl = `https://support.olpo.de/conversation/${c.id}`;
+                        ticketsList += `
+                            <li style="padding: 0.4rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                                <a href="${ticketUrl}" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">
+                                    ${escapeHtml(c.subject || 'Kein Betreff')}
+                                </a>
+                                <span style="color: var(--text-muted); font-size: 0.75rem;">#${c.number}</span>
+                            </li>
+                        `;
+                    });
+                } else {
+                    ticketsList = '<li style="color: var(--status-success-text); font-size: 0.85rem; padding: 0.4rem 0;">✔ Keine offenen Tickets</li>';
+                }
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <strong style="font-size: 0.95rem;">${escapeHtml(mb.name)}</strong>
+                        <span class="badge ${mb.open_tickets > 0 ? 'badge-updates' : 'badge-success'}">${mb.open_tickets} Offen</span>
+                    </div>
+                    <ul style="list-style: none; padding: 0; margin: 0;">${ticketsList}</ul>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+    } catch (e) {
+        console.error('Fehler beim Laden der Freescout Daten:', e);
+    }
+}
+
+// Beim Umschalten auf die Freescout-View automatisch laden
+const originalSwitchView = window.switchView;
+window.switchView = function(viewName) {
+    if (typeof originalSwitchView === 'function') originalSwitchView(viewName);
+    if (viewName === 'freescout') {
+        loadFreescoutData();
+    }
+};
