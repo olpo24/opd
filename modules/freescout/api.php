@@ -41,9 +41,9 @@ try {
                 $mbId = $mb['id'];
                 $mbName = $mb['name'];
 
-                // Offene Tickets pro Postfach abrufen (status=open)
-                $conversations = freescoutApiRequest($config['api_url'], $config['api_key'], "/conversations?mailboxId={$mbId}&status=open");
-                $openCount = $conversations['page']['totalElements'] ?? 0;
+                // Abruf mit state=open für alle ungelösten/offenen Tickets
+                $conversations = freescoutApiRequest($config['api_url'], $config['api_key'], "/conversations?mailboxId={$mbId}&state=open");
+                $openCount = $conversations['page']['totalElements'] ?? count($conversations['_embedded']['conversations'] ?? []);
 
                 $totalOpen += $openCount;
 
@@ -51,7 +51,7 @@ try {
                     'id' => $mbId,
                     'name' => $mbName,
                     'open_tickets' => $openCount,
-                    'conversations' => array_slice($conversations['_embedded']['conversations'] ?? [], 0, 5) // Die 5 neusten
+                    'conversations' => array_slice($conversations['_embedded']['conversations'] ?? [], 0, 5)
                 ];
             }
 
