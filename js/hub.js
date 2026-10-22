@@ -38,15 +38,21 @@ async function loadHubSummary() {
         const response = await res.json();
 
         if (response.status === 'success') {
+            // 1. WP Widget Stats
             const wpData = response.modules.wp_maintenance;
             if (document.getElementById('hub-wp-sites')) document.getElementById('hub-wp-sites').textContent = wpData.sites;
             if (document.getElementById('hub-wp-updates')) document.getElementById('hub-wp-updates').textContent = wpData.updates;
             if (document.getElementById('hub-wp-vulns')) document.getElementById('hub-wp-vulns').textContent = wpData.vulnerabilities;
 
+            // 2. Freescout Widget Stat setzen (HIER WAR DIE LÜCKE)
+            if (response.modules.freescout && document.getElementById('hub-fs-open')) {
+                document.getElementById('hub-fs-open').textContent = response.modules.freescout.open_tickets;
+            }
+
+            // 3. Bookmarks & Gridstack Layouts
             allBookmarks = response.modules.bookmarks || [];
             renderCategoryPills();
             renderFilteredBookmarks();
-
             initGridstack(response.modules.layouts || {});
         }
     } catch (e) {
