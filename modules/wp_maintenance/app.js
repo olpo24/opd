@@ -1,5 +1,21 @@
 let globalSitesData = [];
 
+// Event-Listener für das entkoppelte Modul-System
+window.addEventListener('hubDataLoaded', (e) => {
+    const data = e.detail.wp_maintenance || e.detail.wp;
+    if (data) {
+        if (document.getElementById('hub-wp-sites')) document.getElementById('hub-wp-sites').textContent = data.sites ?? 0;
+        if (document.getElementById('hub-wp-updates')) document.getElementById('hub-wp-updates').textContent = data.updates ?? 0;
+        if (document.getElementById('hub-wp-vulns')) document.getElementById('hub-wp-vulns').textContent = data.vulnerabilities ?? 0;
+    }
+});
+
+window.addEventListener('hubViewSwitched', (e) => {
+    if (e.detail.view === 'wp' && typeof loadSites === 'function') {
+        loadSites();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     loadSites();
 
