@@ -14,8 +14,10 @@ async function loadHubSummary() {
         if (response.status === 'success') {
             const modulesData = response.modules || {};
             
-            // Event absenden
-            window.dispatchEvent(new CustomEvent('hubDataLoaded', { detail: modulesData }));
+            // Sendet das Event leicht verzögert, damit alle Script-Listener garantiert registriert sind
+            setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('hubDataLoaded', { detail: modulesData }));
+            }, 50);
 
             initGridstack(response.layouts || {});
         }
@@ -69,7 +71,6 @@ async function saveWidgetLayout(layoutData) {
     }
 }
 
-// GENERISCHER SEITENWECHSEL FÜR ALLE MODULE
 function switchView(viewName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.app-header .tab-btn').forEach(el => el.classList.remove('active'));
