@@ -32,7 +32,7 @@ try {
         exit;
     }
 
-    // 2. LESEZEICHEN HINZUFÜGEN & SCREENSHOT GENERIEREN
+    // 2. LESEZEICHEN HINZUFÜGEN (Sofortige Antwort!)
     if ($action === 'add_bookmark') {
         $data = json_decode(file_get_contents('php://input'), true);
         $url = trim($data['url'] ?? '');
@@ -51,26 +51,49 @@ try {
             $title = fetchPageTitle($url);
         }
 
-        // ApiFlash Screenshot abrufen & lokal speichern
-        $previewFilename = captureApiFlashScreenshot($url, $apiFlashKey);
-
-        $stmt = $pdo->prepare("INSERT INTO module_bookmarks (title, url, category, icon_url) VALUES (?, ?, ?, ?)");
+        // 1. Eintrag SOFORT in die Datenbank schreiben
+        $stmt = $pdo->prepare("INSERT INTO module_bookmarks (title, url, category, icon_url) VALUES (?, ?, ?, NULL)");
         $stmt->execute([
             $title,
             $url,
-            empty($category) ? 'Allgemein' : $category,
-            $previewFilename
+            empty($category) ? 'Allgemein' : $category
         ]);
+        $bookmarkId = (int)$pdo->lastInsertId();
 
-        echo json_encode(['status' => 'success', 'fetched_title' => $title]);
+        // 2. Antwort an das Frontend SOFORT senden und Verbindung schließen
+        echo json_encode(['status' => 'success', 'fetched_title' => $title, 'id' => $bookmarkId]);
+
+        // Veranlasst PHP/FastCGI dazu, die HTTP-Antwort sofort an den Client zu senden
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } else {
+            header('Content-Length: ' . ob_get_length());
+            header('Connection: close');
+            ob_end_flush();
+            flush();
+        }
+
+        // 3. HINTERGRUND-VERARBEITUNG: ApiFlash Screenshot im Hintergrund herunterladen
+        captureApiFlashScreenshotAsync($bookmarkId, $url, $apiFlashKey, $pdo);
         exit;
     }
 
-    // 3. LESEZEICHEN LÖSCHEN & LOKALE VORSCHAU LÖSCHEN
+    // 3. BACKGROUND-TRIGGER (Aktion zum Generieren des Screenshots)
+    if ($action === 'generate_preview') {
+        $id = (int)($_GET['id'] ?? 0);
+        $url = trim($_GET['url'] ?? '');
+
+        if ($id > 0 && !empty($url)) {
+            captureApiFlashScreenshotAsync($id, $url, $apiFlashKey, $pdo);
+        }
+        echo json_encode(['status' => 'ok']);
+        exit;
+    }
+
+    // 4. LESEZEICHEN LÖSCHEN & LOKALE VORSCHAU ENTFERNEN
     if ($action === 'delete_bookmark') {
         $id = (int)($_GET['id'] ?? 0);
 
-        // Dateinamen der Vorschau ermitteln
         $stmtSelect = $pdo->prepare("SELECT icon_url FROM module_bookmarks WHERE id = ?");
         $stmtSelect->execute([$id]);
         $bm = $stmtSelect->fetch(PDO::FETCH_ASSOC);
@@ -82,7 +105,6 @@ try {
             }
         }
 
-        // Eintragszeile aus der DB löschen
         $stmtDelete = $pdo->prepare("DELETE FROM module_bookmarks WHERE id = ?");
         $stmtDelete->execute([$id]);
 
@@ -96,16 +118,16 @@ try {
 }
 
 /**
- * Holt einen Screenshot über ApiFlash und speichert ihn im Ordner previews/
+ * Laedt den Screenshot im Hintergrund und aktualisiert die DB
  */
-function captureApiFlashScreenshot(string $targetUrl, string $apiKey): ?string
+function captureApiFlashScreenshotAsync(int $bookmarkId, string $targetUrl, string $apiKey, PDO $pdo): void
 {
     $previewsDir = __DIR__ . '/previews';
     if (!is_dir($previewsDir)) {
         @mkdir($previewsDir, 0775, true);
     }
 
-    $filename = 'bm_' . md5($targetUrl . time()) . '.jpg';
+    $filename = 'bm_' . md5($targetUrl . $bookmarkId) . '.jpg';
     $savePath = $previewsDir . '/' . $filename;
 
     $params = http_build_query([
@@ -123,7 +145,7 @@ function captureApiFlashScreenshot(string $targetUrl, string $apiKey): ?string
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_TIMEOUT        => 25,
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CoreHub/1.0'
     ]);
@@ -133,10 +155,10 @@ function captureApiFlashScreenshot(string $targetUrl, string $apiKey): ?string
 
     if ($httpCode === 200 && $imageData) {
         file_put_contents($savePath, $imageData);
-        return $filename;
+        // Dateinamen in der Datenbank aktualisieren
+        $stmt = $pdo->prepare("UPDATE module_bookmarks SET icon_url = ? WHERE id = ?");
+        $stmt->execute([$filename, $bookmarkId]);
     }
-
-    return null;
 }
 
 function fetchPageTitle(string $url): string
