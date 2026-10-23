@@ -19,33 +19,16 @@ $pdo = Database::getConnection();
 $action = $_GET['action'] ?? '';
 
 try {
-    // 1. ZUSAMMENFASSUNG FÜR DAS STARTSEITEN-WIDGET
+    // 1. SUMMARY FÜR DAS DASHBOARD-WIDGET
     if ($action === 'get_summary' || $action === 'get_summary_internal') {
-        $stmt = $pdo->query("SELECT * FROM module_wp_sites");
-        $sites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmtSites = $pdo->query("SELECT COUNT(*) FROM module_wp_sites");
+        $totalSites = (int)$stmtSites->fetchColumn();
 
-        $totalSites = count($sites);
-        $totalUpdates = 0;
-        $totalVulns = 0;
+        $stmtUpdates = $pdo->query("SELECT COUNT(*) FROM site_updates");
+        $totalUpdates = (int)$stmtUpdates->fetchColumn();
 
-        foreach ($sites as $site) {
-            $updatesRaw = $site['updates_json'] ?? $site['updates'] ?? '[]';
-            $vulnsRaw = $site['vulnerabilities_json'] ?? $site['vulnerabilities'] ?? '[]';
-
-            $updates = is_array($updatesRaw) ? $updatesRaw : (json_decode((string)$updatesRaw, true) ?: []);
-            $vulns = is_array($vulnsRaw) ? $vulnsRaw : (json_decode((string)$vulnsRaw, true) ?: []);
-
-            if (is_array($updates)) {
-                $totalUpdates += count($updates['core'] ?? []);
-                $totalUpdates += count($updates['plugin'] ?? []);
-                $totalUpdates += count($updates['theme'] ?? []);
-                $totalUpdates += count($updates['translation'] ?? []);
-            }
-
-            if (is_array($vulns)) {
-                $totalVulns += count($vulns);
-            }
-        }
+        $stmtVulns = $pdo->query("SELECT COUNT(*) FROM site_vulnerabilities");
+        $totalVulns = (int)$stmtVulns->fetchColumn();
 
         echo json_encode([
             'status' => 'success',
@@ -58,24 +41,56 @@ try {
         exit;
     }
 
-    // 2. VOLLSTÄNDIGE SITES-LISTE FÜR DIE DETAILSEITE
+    // 2. ALLE SITES MIT UPDATES UND LÜCKEN FÜR DIE DETAILSEITE
     if ($action === 'get_sites') {
-        $stmt = $pdo->query("SELECT * FROM module_wp_sites ORDER BY name ASC");
-        $sites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmtSites = $pdo->query("SELECT * FROM module_wp_sites ORDER BY name ASC");
+        $sites = $stmtSites->fetchAll(PDO::FETCH_ASSOC);
+
+        // Alle Updates aus site_updates laden und gruppieren
+        $stmtUpdates = $pdo->query("SELECT * FROM site_updates");
+        $rawUpdates = $stmtUpdates->fetchAll(PDO::FETCH_ASSOC);
+        $updatesBySite = [];
+        foreach ($rawUpdates as $up) {
+            $siteId = (int)$up['site_id'];
+            $cat = $up['category'] ?? 'plugin'; // core, plugin, theme, translation
+            $updatesBySite[$siteId][$cat][] = [
+                'item_identifier' => $up['item_identifier'],
+                'item_name'       => $up['item_name'],
+                'current_version' => $up['current_version'],
+                'new_version'     => $up['new_version'],
+                'details_json'    => $up['details_json']
+            ];
+        }
+
+        // Alle Vulnerabilities aus site_vulnerabilities laden
+        $stmtVulns = $pdo->query("SELECT * FROM site_vulnerabilities");
+        $rawVulns = $stmtVulns->fetchAll(PDO::FETCH_ASSOC);
+        $vulnsBySite = [];
+        foreach ($rawVulns as $v) {
+            $siteId = (int)$v['site_id'];
+            $vulnsBySite[$siteId][] = [
+                'item_type'  => $v['item_type'],
+                'item_slug'  => $v['item_slug'],
+                'title'      => $v['title'],
+                'cve'        => $v['cve'],
+                'cvss_score' => $v['cvss_score'],
+                'fixed_in'   => $v['fixed_in']
+            ];
+        }
 
         $result = [];
         foreach ($sites as $site) {
-            $updatesRaw = $site['updates_json'] ?? $site['updates'] ?? '[]';
-            $vulnsRaw = $site['vulnerabilities_json'] ?? $site['vulnerabilities'] ?? '[]';
+            $sId = (int)$site['id'];
+            
+            $siteUpdates = $updatesBySite[$sId] ?? [];
+            $site['updates'] = [
+                'core'        => $siteUpdates['core'] ?? [],
+                'plugin'      => $siteUpdates['plugin'] ?? [],
+                'theme'       => $siteUpdates['theme'] ?? [],
+                'translation' => $siteUpdates['translation'] ?? []
+            ];
 
-            $site['updates'] = is_array($updatesRaw) ? $updatesRaw : (json_decode((string)$updatesRaw, true) ?: []);
-            $site['vulnerabilities'] = is_array($vulnsRaw) ? $vulnsRaw : (json_decode((string)$vulnsRaw, true) ?: []);
-
-            // Struktur absichern
-            if (!isset($site['updates']['core']) || !is_array($site['updates']['core'])) $site['updates']['core'] = [];
-            if (!isset($site['updates']['plugin']) || !is_array($site['updates']['plugin'])) $site['updates']['plugin'] = [];
-            if (!isset($site['updates']['theme']) || !is_array($site['updates']['theme'])) $site['updates']['theme'] = [];
-            if (!isset($site['updates']['translation']) || !is_array($site['updates']['translation'])) $site['updates']['translation'] = [];
+            $site['vulnerabilities'] = $vulnsBySite[$sId] ?? [];
 
             $result[] = $site;
         }
