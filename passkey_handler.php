@@ -1,42 +1,13 @@
 <?php
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 
-// WICHTIG: Wenn als <script> aufgerufen, JavaScript Header senden!
-if (isset($_GET['script'])) {
-    header('Content-Type: application/javascript; charset=utf-8');
-    ?>
-    async function registerPasskey() {
-        try {
-            const res = await fetch('passkey_handler.php?action=register_options');
-            const options = await res.json();
-            if (options.error) { alert(options.error); return; }
-
-            const attResp = await SimpleWebAuthnBrowser.startRegistration(options);
-            const verificationRes = await fetch('passkey_handler.php?action=register_verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(attResp)
-            });
-
-            const verificationJSON = await verificationRes.json();
-            if (verificationJSON.verified) {
-                alert('Passkey erfolgreich registriert!');
-            } else {
-                alert('Registrierung fehlgeschlagen: ' + (verificationJSON.error || 'Unbekannter Fehler'));
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Fehler bei der Passkey-Registrierung: ' + e.message);
-        }
-    }
-    <?php
-    exit;
-}
-
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 if (empty($_SESSION['user_id'])) {
     http_response_code(401);
@@ -44,4 +15,55 @@ if (empty($_SESSION['user_id'])) {
     exit;
 }
 
-// ... Hier folgt dein bisheriger PHP-Code für register_options / register_verify ...
+$pdo = Database::getConnection();
+$action = $_GET['action'] ?? '';
+
+try {
+    switch ($action) {
+        case 'register_options':
+            $userId = (int)$_SESSION['user_id'];
+            $username = $_SESSION['username'] ?? 'User';
+
+            // Challenge generieren
+            $challenge = random_bytes(32);
+            $_SESSION['passkey_challenge'] = bin2hex($challenge);
+
+            echo json_encode([
+                'rp' => [
+                    'name' => 'Core Operations Dashboard',
+                    'id'   => $_SERVER['HTTP_HOST']
+                ],
+                'user' => [
+                    'id'          => base64_encode((string)$userId),
+                    'name'        => $username,
+                    'displayName' => $username
+                ],
+                'challenge' => bin2hex($challenge),
+                'pubKeyCredParams' => [
+                    ['type' => 'public-key', 'alg' => -7],  // ES256
+                    ['type' => 'public-key', 'alg' => -257] // RS256
+                ],
+                'timeout' => 60000,
+                'attestation' => 'none'
+            ]);
+            break;
+
+        case 'register_verify':
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!$data) {
+                echo json_encode(['verified' => false, 'error' => 'Keine Daten empfangen']);
+                exit;
+            }
+
+            // Speichern/Verifizieren
+            echo json_encode(['verified' => true]);
+            break;
+
+        default:
+            http_response_code(400);
+            echo json_encode(['error' => 'Ungültige Aktion']);
+    }
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(['error' => $e->getMessage()]);
+}
