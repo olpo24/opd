@@ -17,9 +17,10 @@ if (empty($_SESSION['user_id'])) {
 
 $pdo = Database::getConnection();
 $action = $_GET['action'] ?? '';
+$apiFlashKey = 'fe8f4d9d960d4c7995103e54e2d3d1be';
 
 try {
-    // 1. ZUSAMMENFASSUNG / LESEZEICHEN ABRUFEN
+    // 1. LESEZEICHEN ABRUFEN
     if ($action === 'get_summary' || $action === 'get_summary_internal' || $action === 'get_bookmarks') {
         $stmt = $pdo->query("SELECT * FROM module_bookmarks ORDER BY category ASC, position_order ASC, title ASC");
         $bookmarks = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -31,7 +32,7 @@ try {
         exit;
     }
 
-    // 2. LESEZEICHEN HINZUFÜGEN
+    // 2. LESEZEICHEN HINZUFÜGEN & SCREENSHOT GENERIEREN
     if ($action === 'add_bookmark') {
         $data = json_decode(file_get_contents('php://input'), true);
         $url = trim($data['url'] ?? '');
@@ -42,22 +43,48 @@ try {
             throw new Exception("URL ist erforderlich.");
         }
 
+        if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
+            $url = "https://" . $url;
+        }
+
         if (empty($title)) {
             $title = fetchPageTitle($url);
         }
 
-        $stmt = $pdo->prepare("INSERT INTO module_bookmarks (title, url, category) VALUES (?, ?, ?)");
-        $stmt->execute([$title, $url, empty($category) ? 'Allgemein' : $category]);
+        // ApiFlash Screenshot abrufen & lokal speichern
+        $previewFilename = captureApiFlashScreenshot($url, $apiFlashKey);
+
+        $stmt = $pdo->prepare("INSERT INTO module_bookmarks (title, url, category, icon_url) VALUES (?, ?, ?, ?)");
+        $stmt->execute([
+            $title,
+            $url,
+            empty($category) ? 'Allgemein' : $category,
+            $previewFilename
+        ]);
 
         echo json_encode(['status' => 'success', 'fetched_title' => $title]);
         exit;
     }
 
-    // 3. LESEZEICHEN LÖSCHEN
+    // 3. LESEZEICHEN LÖSCHEN & LOKALE VORSCHAU LÖSCHEN
     if ($action === 'delete_bookmark') {
         $id = (int)($_GET['id'] ?? 0);
-        $stmt = $pdo->prepare("DELETE FROM module_bookmarks WHERE id = ?");
-        $stmt->execute([$id]);
+
+        // Dateinamen der Vorschau ermitteln
+        $stmtSelect = $pdo->prepare("SELECT icon_url FROM module_bookmarks WHERE id = ?");
+        $stmtSelect->execute([$id]);
+        $bm = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+
+        if ($bm && !empty($bm['icon_url'])) {
+            $filePath = __DIR__ . '/previews/' . basename($bm['icon_url']);
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+        }
+
+        // Eintragszeile aus der DB löschen
+        $stmtDelete = $pdo->prepare("DELETE FROM module_bookmarks WHERE id = ?");
+        $stmtDelete->execute([$id]);
 
         echo json_encode(['status' => 'success']);
         exit;
@@ -68,12 +95,52 @@ try {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 
-function fetchPageTitle(string $url): string
+/**
+ * Holt einen Screenshot über ApiFlash und speichert ihn im Ordner previews/
+ */
+function captureApiFlashScreenshot(string $targetUrl, string $apiKey): ?string
 {
-    if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
-        $url = "https://" . $url;
+    $previewsDir = __DIR__ . '/previews';
+    if (!is_dir($previewsDir)) {
+        @mkdir($previewsDir, 0775, true);
     }
 
+    $filename = 'bm_' . md5($targetUrl . time()) . '.jpg';
+    $savePath = $previewsDir . '/' . $filename;
+
+    $params = http_build_query([
+        'access_key' => $apiKey,
+        'url'        => $targetUrl,
+        'format'     => 'jpeg',
+        'width'      => 800,
+        'height'     => 600,
+        'fresh'      => 'true'
+    ]);
+
+    $apiUrl = "https://api.apiflash.com/v1/urltoimage?" . $params;
+
+    $ch = curl_init($apiUrl);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CoreHub/1.0'
+    ]);
+
+    $imageData = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($httpCode === 200 && $imageData) {
+        file_put_contents($savePath, $imageData);
+        return $filename;
+    }
+
+    return null;
+}
+
+function fetchPageTitle(string $url): string
+{
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
