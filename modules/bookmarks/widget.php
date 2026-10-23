@@ -5,23 +5,19 @@
                 <span>Lesezeichen & Quick Links</span>
                 <span id="bm-count-badge" class="badge badge-zero" style="font-size:0.75rem;">0</span>
             </div>
-            <button class="btn btn-sm" onclick="openAddBookmarkModal()">+ Link hinzufügen</button>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-sm" onclick="openAddBookmarkModal()">+ Hinzufügen</button>
+                <button class="btn btn-sm btn-secondary" onclick="switchView('bookmarks')">Öffnen &rarr;</button>
+            </div>
         </div>
 
         <div class="widget-body">
-            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; align-items: center;">
-                <div style="position: relative; flex: 1; min-width: 180px;">
-                    <input type="text" id="bm-search" placeholder="Lesezeichen durchsuchen..." style="width: 100%; padding: 0.45rem 0.75rem; background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: 0.85rem; outline: none;">
-                </div>
-                <div id="bm-category-pills" style="display: flex; gap: 0.35rem; flex-wrap: wrap;"></div>
-            </div>
-
             <div id="hub-bookmarks-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.65rem;"></div>
         </div>
     </div>
 </div>
 
-<!-- MODAL FÜR LESEZEICHEN -->
+<!-- MODAL FÜR NEUES LESEZEICHEN -->
 <div id="bookmark-modal" class="modal-overlay">
     <div class="modal">
         <h3 style="margin-top:0; margin-bottom: 1.25rem; font-size: 1.1rem; font-weight: 600;">Neues Lesezeichen hinzufügen</h3>
