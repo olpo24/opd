@@ -2,6 +2,7 @@ let grid = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initPasskeyButton();
     loadHubSummary();
 });
 
@@ -13,7 +14,7 @@ async function loadHubSummary() {
         if (response.status === 'success') {
             const modulesData = response.modules || {};
             
-            // Event senden, damit alle Modul-Skripte (WP, Freescout, Bookmarks) ihre Widgets befüllen
+            // Event absenden
             window.dispatchEvent(new CustomEvent('hubDataLoaded', { detail: modulesData }));
 
             initGridstack(response.layouts || {});
@@ -79,13 +80,25 @@ function switchView(viewName) {
     if (targetView) targetView.classList.add('active');
     if (targetBtn) targetBtn.classList.add('active');
 
-    // Modul-Event absenden, wenn Ansicht geöffnet wird
     window.dispatchEvent(new CustomEvent('hubViewSwitched', { detail: { view: viewName } }));
 
     if (viewName === 'hub') {
         if (grid) grid.onParentResize();
         loadHubSummary();
     }
+}
+
+function initPasskeyButton() {
+    const btn = document.getElementById('btn-register-passkey');
+    if (!btn) return;
+
+    btn.addEventListener('click', async () => {
+        if (typeof registerPasskey === 'function') {
+            registerPasskey();
+        } else {
+            alert('Passkey-Handler noch nicht geladen.');
+        }
+    });
 }
 
 function escapeHtml(str) { 
