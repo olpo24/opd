@@ -3,7 +3,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 Auth::check();
 
-// Dynamisches Erkennen aller installierten Module
 $modules = [];
 $moduleDirs = glob(__DIR__ . '/modules/*', GLOB_ONLYDIR);
 
@@ -115,9 +114,28 @@ foreach ($moduleDirs as $dir) {
         th, td { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
         th { background: var(--th-bg); color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
+        /* AKKORDEON & DETAIL GRID STYLES */
+        .site-row { cursor: pointer; transition: background-color 0.15s ease; }
+        .site-row:hover { background-color: var(--bg-card-hover); }
+        .site-row.open { background-color: var(--bg-subtle); }
+        .chevron { display: inline-block; width: 16px; height: 16px; transition: transform 0.2s ease; color: var(--text-dark); }
+        .site-row.open .chevron { transform: rotate(90deg); color: var(--text-main); }
+
+        .detail-row { display: none; background: var(--accordion-bg); }
+        .detail-row.active { display: table-row; }
+        .detail-content { padding: 1.5rem; }
+
+        .update-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+        .update-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; }
+        .update-list { list-style: none; padding: 0; margin: 0; }
+        .update-item { padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+        .update-item:last-child { border-bottom: none; }
+
         .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.55rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
         .badge-zero { background: var(--bg-subtle); color: var(--text-dark); border: 1px solid var(--border-color); }
         .badge-updates { background: var(--status-danger-bg); color: var(--status-danger-text); }
+        .badge-theme { background: var(--status-warning-bg); color: var(--status-warning-text); }
+        .badge-core { background: #581c87; color: #e9d5ff; }
         .badge-success { background: var(--status-success-bg); color: var(--status-success-text); }
 
         .tab-content { display: none; }
@@ -141,7 +159,6 @@ foreach ($moduleDirs as $dir) {
                 <nav class="nav-tabs">
                     <button class="tab-btn active" id="nav-btn-hub" onclick="switchView('hub')">Startseite</button>
                     
-                    <!-- Dynamisch generierte Navigation aus den Modul-Manifesten -->
                     <?php foreach ($modules as $m): ?>
                         <?php if (!empty($m['has_view'])): ?>
                             <button class="tab-btn" id="nav-btn-<?= htmlspecialchars($m['id']) ?>" onclick="switchView('<?= htmlspecialchars($m['id']) ?>')">
@@ -160,7 +177,6 @@ foreach ($moduleDirs as $dir) {
         <!-- VIEW 1: HUB STARTSEITE (GRIDSTACK GRID) -->
         <div id="view-hub" class="tab-content active">
             <div class="grid-stack">
-                <!-- Dynamisches Includieren aller Modul-Widgets -->
                 <?php foreach ($modules as $m): ?>
                     <?php 
                     $widgetFile = __DIR__ . '/modules/' . $m['dir'] . '/widget.php';
@@ -190,8 +206,8 @@ foreach ($moduleDirs as $dir) {
     <!-- LOKALE DEPENDENCIES & SKRIPTE -->
     <script src="js/simplewebauthn.min.js"></script>
     <script src="js/gridstack-all.uamd.min.js"></script>
+    <script src="passkey_handler.php?script=1"></script>
 
-    <!-- Dynamisches Laden aller Client-seitigen Skripte aus den Modulen -->
     <?php foreach ($modules as $m): ?>
         <?php 
         $scriptFile = __DIR__ . '/modules/' . $m['dir'] . '/app.js';
