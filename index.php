@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 Auth::check();
 
+// Dynamisches Erkennen aller installierten Module
 $modules = [];
 $moduleDirs = glob(__DIR__ . '/modules/*', GLOB_ONLYDIR);
 
@@ -114,7 +115,6 @@ foreach ($moduleDirs as $dir) {
         th, td { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
         th { background: var(--th-bg); color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* AKKORDEON & DETAIL GRID STYLES */
         .site-row { cursor: pointer; transition: background-color 0.15s ease; }
         .site-row:hover { background-color: var(--bg-card-hover); }
         .site-row.open { background-color: var(--bg-subtle); }
@@ -148,7 +148,7 @@ foreach ($moduleDirs as $dir) {
 </head>
 <body>
     <div class="container">
-        <!-- HEADER MIT DYNAMISCHER NAVIGATION -->
+        <!-- HEADER -->
         <header class="app-header">
             <div class="brand-title">
                 Core Hub
@@ -174,7 +174,7 @@ foreach ($moduleDirs as $dir) {
             </div>
         </header>
 
-        <!-- VIEW 1: HUB STARTSEITE (GRIDSTACK GRID) -->
+        <!-- VIEW 1: HUB STARTSEITE -->
         <div id="view-hub" class="tab-content active">
             <div class="grid-stack">
                 <?php foreach ($modules as $m): ?>
@@ -188,7 +188,7 @@ foreach ($moduleDirs as $dir) {
             </div>
         </div>
 
-        <!-- DYNAMISCHE MODUL DETAILANSICHTEN -->
+        <!-- DYNAMISCHE DETAILANSICHTEN -->
         <?php foreach ($modules as $m): ?>
             <?php if (!empty($m['has_view'])): ?>
                 <div id="view-<?= htmlspecialchars($m['id']) ?>" class="tab-content">
@@ -203,11 +203,17 @@ foreach ($moduleDirs as $dir) {
         <?php endforeach; ?>
     </div>
 
-    <!-- LOKALE DEPENDENCIES & SKRIPTE -->
+    <!-- LOKALE DEPENDENCIES -->
     <script src="js/simplewebauthn.min.js"></script>
     <script src="js/gridstack-all.uamd.min.js"></script>
+    
+    <!-- Passkey Handler einbinden -->
     <script src="passkey_handler.php?script=1"></script>
 
+    <!-- ZUERST js/hub.js LADEN (Damit Events bereitstehen) -->
+    <script src="js/hub.js"></script>
+
+    <!-- DANACH MODUL-SKRIPTE LADEN -->
     <?php foreach ($modules as $m): ?>
         <?php 
         $scriptFile = __DIR__ . '/modules/' . $m['dir'] . '/app.js';
@@ -216,7 +222,5 @@ foreach ($moduleDirs as $dir) {
             <script src="modules/<?= htmlspecialchars($m['dir']) ?>/app.js"></script>
         <?php endif; ?>
     <?php endforeach; ?>
-
-    <script src="js/hub.js"></script>
 </body>
 </html>
