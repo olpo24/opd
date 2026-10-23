@@ -1,7 +1,40 @@
 let allBookmarks = [];
 let activeCategory = 'all';
 
+// Hilfsfunktion: Entpackt das Datenobjekt und baut die UI auf
+function processBookmarksData(bmData) {
+    if (!bmData) return;
+
+    if (Array.isArray(bmData)) {
+        allBookmarks = bmData;
+    } else if (bmData.data && Array.isArray(bmData.data)) {
+        allBookmarks = bmData.data;
+    } else {
+        allBookmarks = [];
+    }
+
+    renderCategoryPills();
+    renderFilteredBookmarks();
+}
+
+// 1. Auf das zentrale hubDataLoaded Event lauschen
+window.addEventListener('hubDataLoaded', (e) => {
+    if (e.detail && e.detail.bookmarks) {
+        processBookmarksData(e.detail.bookmarks);
+    }
+});
+
+// 2. FALLBACK: Beim ersten DOM-Laden direkt abfragen
 document.addEventListener('DOMContentLoaded', () => {
+    fetch('modules/bookmarks/api.php?action=get_summary')
+        .then(res => res.json())
+        .then(res => {
+            if (res.status === 'success' && res.data) {
+                processBookmarksData(res.data);
+            }
+        })
+        .catch(err => console.error('Bookmarks Fetch Error:', err));
+
     document.getElementById('bm-search')?.addEventListener('input', () => {
         renderFilteredBookmarks();
     });
@@ -23,22 +56,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
             closeBookmarkModal();
             e.target.reset();
-            if (typeof loadHubSummary === 'function') loadHubSummary();
+            // Lesezeichen neu laden
+            reloadBookmarks();
         }
     });
-
-    // Meldet an den Core, dass das Bookmark-Modul bereit ist
-    window.dispatchEvent(new Event('requestHubData'));
 });
 
-window.addEventListener('hubDataLoaded', (e) => {
-    const bmData = e.detail.bookmarks;
-    if (bmData) {
-        allBookmarks = Array.isArray(bmData) ? bmData : (bmData.data || []);
-        renderCategoryPills();
-        renderFilteredBookmarks();
+async function reloadBookmarks() {
+    try {
+        const res = await fetch('modules/bookmarks/api.php?action=get_summary');
+        const response = await res.json();
+        if (response.status === 'success' && response.data) {
+            processBookmarksData(response.data);
+        }
+    } catch (e) {
+        console.error('Fehler beim Neuladen der Bookmarks:', e);
     }
-});
+}
 
 function renderCategoryPills() {
     const container = document.getElementById('bm-category-pills');
@@ -114,7 +148,7 @@ function renderFilteredBookmarks() {
 async function deleteBookmark(id) {
     if (!confirm('Lesezeichen entfernen?')) return;
     await fetch(`modules/bookmarks/api.php?action=delete_bookmark&id=${id}`);
-    if (typeof loadHubSummary === 'function') loadHubSummary();
+    reloadBookmarks();
 }
 
 function openAddBookmarkModal() { document.getElementById('bookmark-modal')?.classList.add('active'); }
