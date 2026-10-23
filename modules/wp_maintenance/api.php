@@ -19,40 +19,32 @@ $pdo = Database::getConnection();
 $action = $_GET['action'] ?? '';
 
 try {
+    // 1. ZUSAMMENFASSUNG FÜR DAS STARTSEITEN-WIDGET
     if ($action === 'get_summary' || $action === 'get_summary_internal') {
-        $totalSites = 0;
+        $stmt = $pdo->query("SELECT * FROM module_wp_sites");
+        $sites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $totalSites = count($sites);
         $totalUpdates = 0;
         $totalVulns = 0;
 
-        try {
-            // Sites aus der Datenbank lesen
-            $stmt = $pdo->query("SELECT * FROM module_wp_sites");
-            $sites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($sites as $site) {
+            $updatesRaw = $site['updates_json'] ?? $site['updates'] ?? '[]';
+            $vulnsRaw = $site['vulnerabilities_json'] ?? $site['vulnerabilities'] ?? '[]';
 
-            $totalSites = count($sites);
+            $updates = is_array($updatesRaw) ? $updatesRaw : (json_decode((string)$updatesRaw, true) ?: []);
+            $vulns = is_array($vulnsRaw) ? $vulnsRaw : (json_decode((string)$vulnsRaw, true) ?: []);
 
-            foreach ($sites as $site) {
-                // Liest updates_json und vulnerabilities_json sicher aus
-                $updatesRaw = $site['updates_json'] ?? $site['updates'] ?? '[]';
-                $vulnsRaw = $site['vulnerabilities_json'] ?? $site['vulnerabilities'] ?? '[]';
-
-                $updates = is_array($updatesRaw) ? $updatesRaw : (json_decode((string)$updatesRaw, true) ?: []);
-                $vulns = is_array($vulnsRaw) ? $vulnsRaw : (json_decode((string)$vulnsRaw, true) ?: []);
-
-                if (is_array($updates)) {
-                    $totalUpdates += count($updates['core'] ?? []);
-                    $totalUpdates += count($updates['plugin'] ?? []);
-                    $totalUpdates += count($updates['theme'] ?? []);
-                    $totalUpdates += count($updates['translation'] ?? []);
-                }
-
-                if (is_array($vulns)) {
-                    $totalVulns += count($vulns);
-                }
+            if (is_array($updates)) {
+                $totalUpdates += count($updates['core'] ?? []);
+                $totalUpdates += count($updates['plugin'] ?? []);
+                $totalUpdates += count($updates['theme'] ?? []);
+                $totalUpdates += count($updates['translation'] ?? []);
             }
-        } catch (Throwable $dbError) {
-            // Falls Tabelle leer oder Struktur abweicht, Fallback auf 0 senden statt 500
-            error_log("WP Maintenance DB Error: " . $dbError->getMessage());
+
+            if (is_array($vulns)) {
+                $totalVulns += count($vulns);
+            }
         }
 
         echo json_encode([
@@ -66,7 +58,71 @@ try {
         exit;
     }
 
-    // ... Hier folgen deine weiteren Actions (get_sites, add_site, sync_site) ...
+    // 2. VOLLSTÄNDIGE SITES-LISTE FÜR DIE DETAILSEITE
+    if ($action === 'get_sites') {
+        $stmt = $pdo->query("SELECT * FROM module_wp_sites ORDER BY name ASC");
+        $sites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($sites as $site) {
+            $updatesRaw = $site['updates_json'] ?? $site['updates'] ?? '[]';
+            $vulnsRaw = $site['vulnerabilities_json'] ?? $site['vulnerabilities'] ?? '[]';
+
+            $site['updates'] = is_array($updatesRaw) ? $updatesRaw : (json_decode((string)$updatesRaw, true) ?: []);
+            $site['vulnerabilities'] = is_array($vulnsRaw) ? $vulnsRaw : (json_decode((string)$vulnsRaw, true) ?: []);
+
+            // Struktur absichern
+            if (!isset($site['updates']['core']) || !is_array($site['updates']['core'])) $site['updates']['core'] = [];
+            if (!isset($site['updates']['plugin']) || !is_array($site['updates']['plugin'])) $site['updates']['plugin'] = [];
+            if (!isset($site['updates']['theme']) || !is_array($site['updates']['theme'])) $site['updates']['theme'] = [];
+            if (!isset($site['updates']['translation']) || !is_array($site['updates']['translation'])) $site['updates']['translation'] = [];
+
+            $result[] = $site;
+        }
+
+        echo json_encode(['status' => 'success', 'data' => $result]);
+        exit;
+    }
+
+    // 3. SEITE HINZUFÜGEN
+    if ($action === 'add_site') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $name = trim($data['name'] ?? '');
+        $url = trim($data['url'] ?? '');
+        $apiKey = trim($data['api_key'] ?? '');
+
+        if (empty($name) || empty($url) || empty($apiKey)) {
+            throw new Exception('Name, URL und API-Key sind erforderlich.');
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO module_wp_sites (name, url, api_key) VALUES (?, ?, ?)");
+        $stmt->execute([$name, $url, $apiKey]);
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+
+    // 4. SEITE BEARBEITEN
+    if ($action === 'edit_site') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = (int)($data['id'] ?? 0);
+        $name = trim($data['name'] ?? '');
+        $url = trim($data['url'] ?? '');
+        $apiKey = trim($data['api_key'] ?? '');
+
+        $stmt = $pdo->prepare("UPDATE module_wp_sites SET name = ?, url = ?, api_key = ? WHERE id = ?");
+        $stmt->execute([$name, $url, $apiKey, $id]);
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+
+    // 5. SEITE LÖSCHEN
+    if ($action === 'delete_site') {
+        $id = (int)($_GET['id'] ?? 0);
+        $stmt = $pdo->prepare("DELETE FROM module_wp_sites WHERE id = ?");
+        $stmt->execute([$id]);
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
 
 } catch (Throwable $e) {
     http_response_code(500);
