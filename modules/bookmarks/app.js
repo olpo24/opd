@@ -143,7 +143,7 @@ function renderCategoryPills() {
     });
 }
 
-// 3. DETAILSEITE: VISUELLE PREVIEW-CARDS RENDERN
+// DETAILSEITE: VISUELLE PREVIEW-CARDS MIT LOKALEN SCREENSHOTS RENDERN
 function renderFilteredCards() {
     const container = document.getElementById('bm-detail-cards-grid');
     const searchTerm = (document.getElementById('bm-detail-search')?.value || '').toLowerCase().trim();
@@ -170,15 +170,23 @@ function renderFilteredCards() {
         try { domain = new URL(bm.url).hostname; } catch (e) { domain = bm.url; }
         
         const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
-        const previewImgUrl = `https://api.microlink.io/?url=${encodeURIComponent(bm.url)}&embed=image.url`;
+        
+        // Lokaler Pfad zum ApiFlash-Screenshot
+        const previewImgUrl = bm.icon_url 
+            ? `modules/bookmarks/previews/${encodeURIComponent(bm.icon_url)}` 
+            : null;
 
         const card = document.createElement('div');
         card.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.15s ease, border-color 0.15s ease;';
 
+        const imageHtml = previewImgUrl 
+            ? `<img src="${previewImgUrl}" alt="${escapeHtml(bm.title)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+            : '';
+
         card.innerHTML = `
-            <div style="height: 140px; background: var(--bg-subtle); overflow: hidden; position: relative; border-bottom: 1px solid var(--border-color);">
-                <img src="${previewImgUrl}" alt="${escapeHtml(bm.title)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; background: var(--bg-subtle); color: var(--text-dark); font-size: 0.8rem;">Keine Vorschau</div>
+            <div style="height: 150px; background: var(--bg-subtle); overflow: hidden; position: relative; border-bottom: 1px solid var(--border-color);">
+                ${imageHtml}
+                <div style="display: ${previewImgUrl ? 'none' : 'flex'}; width: 100%; height: 100%; align-items: center; justify-content: center; background: var(--bg-subtle); color: var(--text-dark); font-size: 0.8rem;">Kein Screenshot</div>
             </div>
 
             <div style="padding: 1rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
@@ -210,7 +218,6 @@ function renderFilteredCards() {
         container.appendChild(card);
     });
 }
-
 async function deleteBookmark(id) {
     if (!confirm('Lesezeichen entfernen?')) return;
     await fetch(`modules/bookmarks/api.php?action=delete_bookmark&id=${id}`);
