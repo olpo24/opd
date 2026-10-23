@@ -68,8 +68,8 @@ function renderFilteredBookmarks() {
 
     const filtered = allBookmarks.filter(bm => {
         const matchesCategory = (activeCategory === 'all') || (bm.category === activeCategory);
-        const matchesSearch = bm.title.toLowerCase().includes(searchTerm) || 
-                              bm.url.toLowerCase().includes(searchTerm) || 
+        const matchesSearch = (bm.title || '').toLowerCase().includes(searchTerm) || 
+                              (bm.url || '').toLowerCase().includes(searchTerm) || 
                               (bm.category && bm.category.toLowerCase().includes(searchTerm));
         return matchesCategory && matchesSearch;
     });
