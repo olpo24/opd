@@ -208,7 +208,7 @@ foreach ($moduleDirs as $dir) {
     <script src="js/gridstack-all.uamd.min.js"></script>
     
     <!-- Passkey Handler einbinden -->
-    <script src="passkey_handler.php?script=1"></script>
+    <script src="js/passkey.js"></script>
 
     <!-- ZUERST js/hub.js LADEN (Damit Events bereitstehen) -->
     <script src="js/hub.js"></script>
