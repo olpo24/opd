@@ -2,7 +2,7 @@
     <div class="grid-stack-item-content">
         <div class="widget-title">
             <span>WordPress Maintenance</span>
-            <button class="btn btn-sm btn-secondary" onclick="switchView('wp')">Öffnen &rarr;</button>
+            <button class="btn btn-sm btn-secondary" onclick="switchView('wp_maintenance')">Öffnen &rarr;</button>
         </div>
         <div class="widget-body">
             <div class="metric-group">
