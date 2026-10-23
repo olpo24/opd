@@ -19,46 +19,50 @@ $pdo = Database::getConnection();
 $action = $_GET['action'] ?? '';
 
 try {
-    if ($action === 'get_summary' || $action === 'get_summary_internal') {
-        $bookmarks = $pdo->query("SELECT * FROM module_bookmarks ORDER BY category ASC, position_order ASC, title ASC")->fetchAll();
-        $response = ['status' => 'success', 'data' => $bookmarks];
-        echo json_encode($response);
+    // 1. ZUSAMMENFASSUNG / LESEZEICHEN ABRUFEN
+    if ($action === 'get_summary' || $action === 'get_summary_internal' || $action === 'get_bookmarks') {
+        $stmt = $pdo->query("SELECT * FROM module_bookmarks ORDER BY category ASC, position_order ASC, title ASC");
+        $bookmarks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'status' => 'success',
+            'data'   => $bookmarks
+        ]);
         exit;
     }
 
-    switch ($action) {
-        case 'add_bookmark':
-            $data = json_decode(file_get_contents('php://input'), true);
-            $url = trim($data['url'] ?? '');
-            $title = trim($data['title'] ?? '');
+    // 2. LESEZEICHEN HINZUFÜGEN
+    if ($action === 'add_bookmark') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $url = trim($data['url'] ?? '');
+        $title = trim($data['title'] ?? '');
+        $category = trim($data['category'] ?? 'Allgemein');
 
-            if (empty($url)) {
-                throw new Exception("URL ist erforderlich.");
-            }
+        if (empty($url)) {
+            throw new Exception("URL ist erforderlich.");
+        }
 
-            if (empty($title)) {
-                $title = fetchPageTitle($url);
-            }
+        if (empty($title)) {
+            $title = fetchPageTitle($url);
+        }
 
-            $stmt = $pdo->prepare("INSERT INTO module_bookmarks (title, url, category) VALUES (?, ?, ?)");
-            $stmt->execute([
-                $title,
-                $url,
-                trim($data['category'] ?? 'Allgemein')
-            ]);
-            echo json_encode(['status' => 'success', 'fetched_title' => $title]);
-            break;
+        $stmt = $pdo->prepare("INSERT INTO module_bookmarks (title, url, category) VALUES (?, ?, ?)");
+        $stmt->execute([$title, $url, empty($category) ? 'Allgemein' : $category]);
 
-        case 'delete_bookmark':
-            $id = (int)($_GET['id'] ?? 0);
-            $stmt = $pdo->prepare("DELETE FROM module_bookmarks WHERE id = ?");
-            $stmt->execute([$id]);
-            echo json_encode(['status' => 'success']);
-            break;
-
-        default:
-            echo json_encode(['status' => 'error', 'message' => 'Ungültige Aktion']);
+        echo json_encode(['status' => 'success', 'fetched_title' => $title]);
+        exit;
     }
+
+    // 3. LESEZEICHEN LÖSCHEN
+    if ($action === 'delete_bookmark') {
+        $id = (int)($_GET['id'] ?? 0);
+        $stmt = $pdo->prepare("DELETE FROM module_bookmarks WHERE id = ?");
+        $stmt->execute([$id]);
+
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
