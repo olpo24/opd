@@ -1,11 +1,17 @@
 let globalSitesData = [];
 
+// 1. Event-Listener für Hub-Daten
 window.addEventListener('hubDataLoaded', (e) => {
-    const data = e.detail.wp_maintenance;
+    const data = e.detail.wp_maintenance || e.detail.wp;
     if (data) {
-        if (document.getElementById('hub-wp-sites')) document.getElementById('hub-wp-sites').textContent = data.sites ?? 0;
-        if (document.getElementById('hub-wp-updates')) document.getElementById('hub-wp-updates').textContent = data.updates ?? 0;
-        if (document.getElementById('hub-wp-vulns')) document.getElementById('hub-wp-vulns').textContent = data.vulnerabilities ?? 0;
+        // Liest flexibel sowohl 'sites'/'updates'/'vulnerabilities' als auch 'total_*' Schlüssel aus
+        const sitesCount = data.sites ?? data.total_sites ?? 0;
+        const updatesCount = data.updates ?? data.total_updates ?? 0;
+        const vulnsCount = data.vulnerabilities ?? data.total_vulnerabilities ?? 0;
+
+        if (document.getElementById('hub-wp-sites')) document.getElementById('hub-wp-sites').textContent = sitesCount;
+        if (document.getElementById('hub-wp-updates')) document.getElementById('hub-wp-updates').textContent = updatesCount;
+        if (document.getElementById('hub-wp-vulns')) document.getElementById('hub-wp-vulns').textContent = vulnsCount;
     }
 });
 
@@ -16,6 +22,11 @@ window.addEventListener('hubViewSwitched', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Registrierung/Anforderung der Hub-Daten beim Initialisieren
+    if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new Event('requestHubData'));
+    }
+
     document.getElementById('add-site-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = {
