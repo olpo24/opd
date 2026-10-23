@@ -29,8 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('hubDataLoaded', (e) => {
-    if (e.detail.bookmarks) {
-        allBookmarks = e.detail.bookmarks;
+    const bmData = e.detail.bookmarks;
+    if (bmData) {
+        allBookmarks = Array.isArray(bmData) ? bmData : (bmData.data || []);
         renderCategoryPills();
         renderFilteredBookmarks();
     }
