@@ -1,17 +1,39 @@
-// Das Freescout-Modul reagiert auf Events aus dem Hub
+// Hilfsfunktion: Schreibt die Anzahl offener Tickets in das Startseiten-Widget
+function updateFreescoutWidget(data) {
+    if (!data) return;
+    const countEl = document.getElementById('hub-fs-open');
+    if (countEl) {
+        countEl.textContent = data.total_open ?? 0;
+    }
+}
+
+// 1. Auf zentrales Hub-Event lauschen (sofern getriggert)
 window.addEventListener('hubDataLoaded', (e) => {
-    const data = e.detail.freescout;
-    if (data && document.getElementById('hub-fs-open')) {
-        document.getElementById('hub-fs-open').textContent = data.total_open || 0;
+    if (e.detail && e.detail.freescout) {
+        updateFreescoutWidget(e.detail.freescout);
     }
 });
 
+// 2. Bei Ansichts-Wechsel zur Detailseite Tickets laden
 window.addEventListener('hubViewSwitched', (e) => {
-    if (e.detail.view === 'freescout') {
+    if (e.detail && e.detail.view === 'freescout') {
         loadFreescoutData();
     }
 });
 
+// 3. FALLBACK: Beim ersten Laden der Seite sofort selbst per API abfragen
+document.addEventListener('DOMContentLoaded', () => {
+    fetch('modules/freescout/api.php?action=get_summary')
+        .then(res => res.json())
+        .then(res => {
+            if (res.status === 'success' && res.data) {
+                updateFreescoutWidget(res.data);
+            }
+        })
+        .catch(err => console.error('Freescout Summary Fetch Error:', err));
+});
+
+// Funktion für die Detailansicht (Tabelle)
 async function loadFreescoutData() {
     const tbody = document.getElementById('freescout-tickets-table-body');
     if (!tbody) return;
@@ -22,9 +44,9 @@ async function loadFreescoutData() {
 
         if (response.status === 'success') {
             const data = response.data;
-            if (document.getElementById('hub-fs-open')) {
-                document.getElementById('hub-fs-open').textContent = data.total_open;
-            }
+            
+            // Widget-Zähler gleich mit aktualisieren
+            updateFreescoutWidget(data);
 
             tbody.innerHTML = '';
             let allOpenTickets = [];
