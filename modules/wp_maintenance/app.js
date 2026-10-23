@@ -1,8 +1,7 @@
 let globalSitesData = [];
 
-// Event-Listener für das entkoppelte Modul-System
 window.addEventListener('hubDataLoaded', (e) => {
-    const data = e.detail.wp_maintenance || e.detail.wp;
+    const data = e.detail.wp_maintenance;
     if (data) {
         if (document.getElementById('hub-wp-sites')) document.getElementById('hub-wp-sites').textContent = data.sites ?? 0;
         if (document.getElementById('hub-wp-updates')) document.getElementById('hub-wp-updates').textContent = data.updates ?? 0;
@@ -11,14 +10,12 @@ window.addEventListener('hubDataLoaded', (e) => {
 });
 
 window.addEventListener('hubViewSwitched', (e) => {
-    if (e.detail.view === 'wp' && typeof loadSites === 'function') {
+    if (e.detail.view === 'wp_maintenance' && typeof loadSites === 'function') {
         loadSites();
     }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadSites();
-
     document.getElementById('add-site-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = {
@@ -65,18 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadSites() {
     try {
         const res = await fetch('modules/wp_maintenance/api.php?action=get_sites');
-        if (!res.ok) {
-            console.error('API Aufruf fehlgeschlagen mit Status:', res.status);
-            return;
-        }
+        if (!res.ok) return;
         const response = await res.json();
         
         if (response.status === 'success' && Array.isArray(response.data)) {
             globalSitesData = response.data;
             renderDashboardTable(globalSitesData);
             renderSettingsTable(globalSitesData);
-        } else {
-            console.error('Unerwartetes API-Format:', response);
         }
     } catch (e) {
         console.error('Fehler beim Laden der Seiten:', e);
@@ -101,7 +93,6 @@ function renderDashboardTable(sites) {
         const vulnCount = site.vulnerabilities?.length || 0;
 
         const lastCheck = site.last_check ? new Date(site.last_check).toLocaleString('de-DE') : 'Noch nie';
-
         const securityBadge = vulnCount > 0
             ? `<span class="badge badge-updates">${vulnCount} CVE</span>`
             : `<span class="badge badge-success">Sicher</span>`;
@@ -147,7 +138,7 @@ function renderDashboardTable(sites) {
         trDetail.innerHTML = `
             <td colspan="10" class="detail-content">
                 ${renderVulnerabilityAlert(site.vulnerabilities)}
-                <div class="update-grid" style="margin-top: 1rem;">
+                <div class="update-grid">
                     ${renderUpdateSection('Core Updates', site.updates?.core, 'badge-core')}
                     ${renderUpdateSection('Plugin Updates', site.updates?.plugin)}
                     ${renderUpdateSection('Theme Updates', site.updates?.theme, 'badge-theme')}
@@ -162,9 +153,7 @@ function renderDashboardTable(sites) {
 }
 
 function renderCountBadge(count, extraClass = '') {
-    if (count === 0) {
-        return '<span class="badge badge-zero">0</span>';
-    }
+    if (count === 0) return '<span class="badge badge-zero">0</span>';
     return `<span class="badge badge-updates ${extraClass}">${count}</span>`;
 }
 
@@ -287,7 +276,7 @@ function switchTab(tabName) {
         settingsTab.style.display = 'block';
     }
 
-    const btns = document.querySelectorAll('#view-wp .nav-tabs .tab-btn');
+    const btns = document.querySelectorAll('#view-wp_maintenance .nav-tabs .tab-btn');
     btns.forEach(btn => btn.classList.remove('active'));
     if (tabName === 'dashboard' && btns[0]) btns[0].classList.add('active');
     if (tabName === 'settings' && btns[1]) btns[1].classList.add('active');
