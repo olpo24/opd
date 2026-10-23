@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof loadHubSummary === 'function') loadHubSummary();
         }
     });
+
+    // Meldet an den Core, dass das Bookmark-Modul bereit ist
+    window.dispatchEvent(new Event('requestHubData'));
 });
 
 window.addEventListener('hubDataLoaded', (e) => {
