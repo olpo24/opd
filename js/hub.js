@@ -1,4 +1,5 @@
 let grid = null;
+let cachedModulesData = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
@@ -12,12 +13,10 @@ async function loadHubSummary() {
         const response = await res.json();
 
         if (response.status === 'success') {
-            const modulesData = response.modules || {};
+            cachedModulesData = response.modules || {};
             
-            // Sendet das Event leicht verzögert, damit alle Script-Listener garantiert registriert sind
-            setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('hubDataLoaded', { detail: modulesData }));
-            }, 50);
+            // Event senden
+            dispatchHubData();
 
             initGridstack(response.layouts || {});
         }
@@ -25,6 +24,17 @@ async function loadHubSummary() {
         console.error('Fehler beim Laden der Hub-Daten:', e);
     }
 }
+
+function dispatchHubData() {
+    if (cachedModulesData) {
+        window.dispatchEvent(new CustomEvent('hubDataLoaded', { detail: cachedModulesData }));
+    }
+}
+
+// Falls Modul-Skripte erst nach dem Fetch bereitstehen, fordern sie die Daten aktiv an
+window.addEventListener('requestHubData', () => {
+    dispatchHubData();
+});
 
 function initGridstack(layouts = {}) {
     if (grid) return;
@@ -93,11 +103,11 @@ function initPasskeyButton() {
     const btn = document.getElementById('btn-register-passkey');
     if (!btn) return;
 
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
         if (typeof registerPasskey === 'function') {
             registerPasskey();
         } else {
-            alert('Passkey-Handler noch nicht geladen.');
+            alert('Passkey Handler wird noch geladen. Bitte kurz warten.');
         }
     });
 }
