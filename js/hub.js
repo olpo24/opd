@@ -103,16 +103,24 @@ function initSidebarToggle() {
     const toggleBtn = document.getElementById('sidebar-toggle');
     if (!toggleBtn) return;
 
+    // Gespeicherten Zustand beim Laden anwenden
     const isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
     if (isCollapsed) {
         document.body.classList.add('sidebar-collapsed');
     }
 
-    toggleBtn.addEventListener('click', () => {
+    toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         document.body.classList.toggle('sidebar-collapsed');
         const nowCollapsed = document.body.classList.contains('sidebar-collapsed');
         localStorage.setItem('sidebar_collapsed', nowCollapsed);
-        if (grid) setTimeout(() => grid.onParentResize(), 250);
+
+        // Gridstack an die neue Containerbreite anpassen
+        if (typeof grid !== 'undefined' && grid) {
+            setTimeout(() => {
+                grid.onParentResize();
+            }, 200);
+        }
     });
 }
 
