@@ -79,24 +79,25 @@ try {
 
     // 4. MODUL TOGGLE (AKTIVIEREN / DEAKTIVIEREN)
     if ($action === 'toggle_module') {
-        $folder = basename($_GET['folder'] ?? '');
-        $targetDir = __DIR__ . '/../' . $folder;
+    $folder = basename($_GET['folder'] ?? '');
+    $targetDir = __DIR__ . '/../' . $folder;
 
-        if (!is_dir($targetDir) || $folder === 'settings') {
-            throw new Exception("Ungültiges Modul.");
-        }
-
-        $disabledFlag = $targetDir . '/.disabled';
-        if (file_exists($disabledFlag)) {
-            @unlink($disabledFlag);
-        } else {
-            file_put_contents($disabledFlag, 'disabled');
-        }
-
-        echo json_encode(['status' => 'success']);
-        exit;
+    if (!is_dir($targetDir) || $folder === 'settings') {
+        throw new Exception("Dieses Modul kann nicht deaktiviert werden.");
     }
 
+    $disabledFlag = $targetDir . '/.disabled';
+    if (file_exists($disabledFlag)) {
+        @unlink($disabledFlag);
+        $status = 'enabled';
+    } else {
+        file_put_contents($disabledFlag, 'disabled');
+        $status = 'disabled';
+    }
+
+    echo json_encode(['status' => 'success', 'module_status' => $status]);
+    exit;
+}
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
