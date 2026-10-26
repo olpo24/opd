@@ -1,30 +1,23 @@
-<div class="card" style="padding: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+<div class="card">
+    <div class="view-header">
         <div>
-            <h3 style="margin: 0; font-size: 1.1rem;">Freescout Ticket-Übersicht</h3>
-            <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.85rem;">Alle offenen Kundentickets im Überblick</p>
+            <h2 class="view-title">Freescout Support Helpdesk</h2>
+            <p class="view-subtitle">Übersicht aller aktuell offenen Kundentickets und Anfragen.</p>
         </div>
-        <button onclick="loadFreescoutData()" class="btn btn-secondary btn-sm">Aktualisieren</button>
+        <a href="https://support.olpo.de" target="_blank" class="btn">Freescout öffnen &rarr;</a>
     </div>
 
-    <!-- TABELLE FÜR FREESCOUT TICKETS -->
-    <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 80px;">Ticket</th>
-                    <th>Betreff</th>
-                    <th>Kunde</th>
-                    <th>Postfach</th>
-                    <th>Datum</th>
-                    <th style="text-align: right;">Aktion</th>
-                </tr>
-            </thead>
-            <tbody id="freescout-tickets-table-body">
-                <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Lade Tickets...</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <table class="freescout-table">
+        <thead>
+            <tr>
+                <th style="width: 80px;">Ticket</th>
+                <th>Betreff / Vorschau</th>
+                <th>Kunde</th>
+                <th>Postfach</th>
+                <th>Erstellt am</th>
+                <th class="table-actions-cell">Aktion</th>
+            </tr>
+        </thead>
+        <tbody id="freescout-tickets-table-body"></tbody>
+    </table>
 </div>
