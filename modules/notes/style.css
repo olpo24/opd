@@ -1,0 +1,65 @@
+/* Quick Notes Module Styles */
+.notes-tab-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.notes-scratchpad {
+    width: 100%;
+    flex: 1;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.85rem;
+    resize: none;
+    outline: none;
+}
+
+.notes-status-text {
+    font-size: 0.72rem;
+    color: var(--text-dark);
+    margin-top: 0.35rem;
+    text-align: right;
+}
+
+.notes-todo-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.notes-todo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.65rem;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.82rem;
+}
+
+.notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.notes-card-code {
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-main);
+    overflow-x: auto;
+    max-height: 200px;
+    margin: 0;
+}
