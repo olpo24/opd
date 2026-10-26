@@ -139,18 +139,17 @@ foreach ($moduleDirs as $dir) {
     </div>
 
     <!-- CLIENT SKRIPTE -->
-    <script src="js/simplewebauthn.min.js"></script>
     <script src="js/gridstack-all.uamd.min.js"></script>
-    <script src="js/passkey.js"></script>
     <script src="js/hub.js"></script>
 
     <?php foreach ($modules as $m): ?>
-        <?php 
-        $scriptFile = __DIR__ . '/modules/' . $m['dir'] . '/app.js';
-        if (file_exists($scriptFile)): 
-        ?>
-            <script src="modules/<?= htmlspecialchars($m['dir']) ?>/app.js"></script>
-        <?php endif; ?>
+    <?php 
+    // Lädt alle .js Dateien aus dem Modul-Ordner (z.B. simplewebauthn.min.js UND app.js)
+    $jsFiles = glob(__DIR__ . '/modules/' . $m['dir'] . '/*.js');
+    foreach ($jsFiles as $js):
+    ?>
+        <script src="modules/<?= htmlspecialchars($m['dir']) ?>/<?= basename($js) ?>"></script>
     <?php endforeach; ?>
+<?php endforeach; ?>
 </body>
 </html>
