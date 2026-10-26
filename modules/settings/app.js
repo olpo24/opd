@@ -53,9 +53,18 @@ async function loadSettingsModules() {
 }
 
 async function toggleModule(folder) {
-    await fetch(`modules/settings/api.php?action=toggle_module&folder=${encodeURIComponent(folder)}`);
-    loadSettingsModules();
-    setTimeout(() => location.reload(), 300);
+    try {
+        const res = await fetch(`modules/settings/api.php?action=toggle_module&folder=${encodeURIComponent(folder)}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+            // Seite neu laden, damit index.php und Sidebar die Modul-Liste neu aufbauen
+            window.location.reload();
+        } else {
+            alert('Fehler beim Ändern des Modul-Status: ' + (data.message || 'Unbekannter Fehler'));
+        }
+    } catch (e) {
+        console.error('Fehler beim Umschalten des Moduls:', e);
+    }
 }
 
 // 2. THEME & CSS VARIABLES CUSTOMIZER
