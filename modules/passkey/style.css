@@ -1,0 +1,10 @@
+/* Passkey Module Styles */
+.passkey-list-container {
+    margin-top: 1rem;
+}
+
+.passkey-credential-id {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
