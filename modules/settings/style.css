@@ -1,0 +1,45 @@
+/* Settings Module Styles */
+.settings-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.settings-section-header .form-title {
+    margin: 0;
+}
+
+.settings-footer-actions {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.settings-profile-container {
+    max-width: 480px;
+}
+
+.form-group-spaced {
+    margin-top: 1.25rem;
+}
+
+.file-input {
+    padding: 0.5rem;
+    background: var(--bg-body);
+}
+
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+}
+
+.form-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+}
