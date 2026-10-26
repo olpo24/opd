@@ -30,11 +30,8 @@ foreach ($moduleDirs as $dir) {
     
     <link rel="stylesheet" href="css/gridstack.min.css" />
     <link rel="stylesheet" href="css/gridstack-extra.min.css" />
-    
-    <!-- ZENTRALES DASHBOARD DESIGN-SYSTEM -->
     <link rel="stylesheet" href="css/app.css" />
 
-    <!-- DYNAMISCHES LADEN ALLER MODUL-STYLES -->
     <?php foreach ($modules as $m): ?>
         <?php 
         $cssFile = __DIR__ . '/modules/' . $m['dir'] . '/style.css';
@@ -45,63 +42,89 @@ foreach ($moduleDirs as $dir) {
     <?php endforeach; ?>
 </head>
 <body>
-    <div class="container">
-        <!-- HEADER -->
-        <header class="app-header">
-            <div class="brand-title">
-                Core Hub
-                <span class="brand-pill">Operations</span>
+    <div id="app-wrapper">
+        <!-- PIXELCAVE COLLAPSIBLE SIDEBAR -->
+        <aside class="app-sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo">C</div>
+                <span class="brand-text">Core Hub</span>
             </div>
 
-            <div class="header-actions">
-                <nav class="nav-tabs">
-                    <button class="tab-btn active" id="nav-btn-hub" onclick="switchView('hub')">Startseite</button>
-                    
-                    <?php foreach ($modules as $m): ?>
-                        <?php if (!empty($m['has_view'])): ?>
-                            <button class="tab-btn" id="nav-btn-<?= htmlspecialchars($m['id']) ?>" onclick="switchView('<?= htmlspecialchars($m['id']) ?>')">
-                                <?= htmlspecialchars($m['name']) ?>
-                            </button>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </nav>
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Hauptmenü</div>
+                
+                <button class="nav-item active" id="nav-btn-hub" onclick="switchView('hub')">
+                    <span class="nav-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </span>
+                    <span>Startseite</span>
+                </button>
 
-                <button id="theme-toggle" class="theme-toggle-btn" title="Farbschema wechseln"></button>
-                <button id="btn-register-passkey" class="btn btn-secondary">Passkey</button>
-                <a href="logout.php" class="btn btn-secondary btn-danger">Abmelden</a>
-            </div>
-        </header>
+                <div class="nav-section-title">Module</div>
 
-        <!-- VIEW 1: HUB STARTSEITE -->
-        <div id="view-hub" class="tab-content active">
-            <div class="grid-stack">
                 <?php foreach ($modules as $m): ?>
-                    <?php 
-                    $widgetFile = __DIR__ . '/modules/' . $m['dir'] . '/widget.php';
-                    if (file_exists($widgetFile)) {
-                        include $widgetFile;
-                    }
-                    ?>
+                    <?php if (!empty($m['has_view'])): ?>
+                        <button class="nav-item" id="nav-btn-<?= htmlspecialchars($m['id']) ?>" onclick="switchView('<?= htmlspecialchars($m['id']) ?>')">
+                            <span class="nav-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                            </span>
+                            <span><?= htmlspecialchars($m['name']) ?></span>
+                        </button>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT AREA WITH TOPBAR -->
+        <main class="app-main">
+            <header class="app-header">
+                <div class="header-left">
+                    <button class="sidebar-toggle-btn" id="sidebar-toggle" title="Sidebar einklappen">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <h1 class="page-title" id="current-page-title">Startseite</h1>
+                </div>
+
+                <div class="header-actions">
+                    <button id="theme-toggle" class="theme-toggle-btn" title="Farbschema wechseln"></button>
+                    <button id="btn-register-passkey" class="btn btn-secondary btn-sm">Passkey</button>
+                    <a href="logout.php" class="btn btn-secondary btn-sm btn-danger">Abmelden</a>
+                </div>
+            </header>
+
+            <div class="app-content">
+                <!-- VIEW 1: HUB STARTSEITE -->
+                <div id="view-hub" class="tab-content active">
+                    <div class="grid-stack">
+                        <?php foreach ($modules as $m): ?>
+                            <?php 
+                            $widgetFile = __DIR__ . '/modules/' . $m['dir'] . '/widget.php';
+                            if (file_exists($widgetFile)) {
+                                include $widgetFile;
+                            }
+                            ?>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <!-- DYNAMISCHE MODUL DETAILANSICHTEN -->
+                <?php foreach ($modules as $m): ?>
+                    <?php if (!empty($m['has_view'])): ?>
+                        <div id="view-<?= htmlspecialchars($m['id']) ?>" class="tab-content">
+                            <?php 
+                            $viewFile = __DIR__ . '/modules/' . $m['dir'] . '/view.php';
+                            if (file_exists($viewFile)) {
+                                include $viewFile;
+                            }
+                            ?>
+                        </div>
+                    <?php endif; ?>
                 <?php endforeach; ?>
             </div>
-        </div>
-
-        <!-- DYNAMISCHE MODUL DETAILANSICHTEN -->
-        <?php foreach ($modules as $m): ?>
-            <?php if (!empty($m['has_view'])): ?>
-                <div id="view-<?= htmlspecialchars($m['id']) ?>" class="tab-content">
-                    <?php 
-                    $viewFile = __DIR__ . '/modules/' . $m['dir'] . '/view.php';
-                    if (file_exists($viewFile)) {
-                        include $viewFile;
-                    }
-                    ?>
-                </div>
-            <?php endif; ?>
-        <?php endforeach; ?>
+        </main>
     </div>
 
-    <!-- SKRIPTE -->
+    <!-- CLIENT SKRIPTE -->
     <script src="js/simplewebauthn.min.js"></script>
     <script src="js/gridstack-all.uamd.min.js"></script>
     <script src="js/passkey.js"></script>
