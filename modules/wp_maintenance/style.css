@@ -1,0 +1,68 @@
+/* WP Maintenance Module Styles */
+.site-row {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.site-row:hover {
+    background-color: var(--bg-card-hover);
+}
+
+.site-row.open {
+    background-color: var(--bg-subtle);
+}
+
+.chevron {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease;
+    color: var(--text-dark);
+}
+
+.site-row.open .chevron {
+    transform: rotate(90deg);
+    color: var(--text-main);
+}
+
+.detail-row {
+    display: none;
+    background: var(--accordion-bg);
+}
+
+.detail-row.active {
+    display: table-row;
+}
+
+.detail-content {
+    padding: 1.5rem;
+}
+
+.update-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.update-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.update-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.update-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+.update-item:last-child {
+    border-bottom: none;
+}
