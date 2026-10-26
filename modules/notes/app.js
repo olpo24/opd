@@ -2,7 +2,6 @@ let allNotesData = [];
 let scratchpadTimeout = null;
 let activeNotesTypeFilter = 'all';
 
-// Hilfsfunktion: Widget-Daten rendern
 function processNotesWidgetData(data) {
     if (!data) return;
 
@@ -16,7 +15,6 @@ function processNotesWidgetData(data) {
     }
 }
 
-// 1. Hub-Events
 window.addEventListener('hubDataLoaded', (e) => {
     if (e.detail && e.detail.notes) {
         processNotesWidgetData(e.detail.notes);
@@ -30,7 +28,6 @@ window.addEventListener('hubViewSwitched', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Fallback Fetch beim Start
     fetch('modules/notes/api.php?action=get_summary')
         .then(res => res.json())
         .then(res => {
@@ -40,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => console.error('Notes Fetch Error:', err));
 
-    // Auto-Save für Scratchpad
     const padText = document.getElementById('notes-scratchpad-text');
     if (padText) {
         padText.addEventListener('input', () => {
@@ -59,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Quick To-Do Formular
     document.getElementById('quick-todo-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const input = document.getElementById('quick-todo-input');
@@ -76,12 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
         reloadNotesSummary();
     });
 
-    // Detail-Suche & Filter
     document.getElementById('notes-detail-search')?.addEventListener('input', () => {
         renderFilteredNotesDetail();
     });
 
-    // Note Modal Form
     document.getElementById('add-note-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const payload = {
@@ -122,22 +115,22 @@ function renderQuickTodos(todos) {
 
     container.innerHTML = '';
     if (todos.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.8rem; margin:0;">Keine offenen Aufgaben.</p>';
+        container.innerHTML = '<p class="notes-empty-text">Keine offenen Aufgaben.</p>';
         return;
     }
 
     todos.forEach(t => {
         const item = document.createElement('div');
-        item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0.5rem; background: var(--bg-subtle); border-radius: 6px; font-size: 0.8rem;';
+        item.className = 'notes-todo-item';
         
         const isChecked = parseInt(t.is_completed) === 1;
         
         item.innerHTML = `
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1; overflow: hidden; ${isChecked ? 'text-decoration: line-through; opacity: 0.6;' : ''}">
+            <label class="notes-todo-label ${isChecked ? 'completed' : ''}">
                 <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleTodoStatus(${t.id})">
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.title)}</span>
+                <span class="notes-todo-title">${escapeHtml(t.title)}</span>
             </label>
-            <button onclick="deleteNote(${t.id})" style="background:none; border:none; color:var(--text-dark); cursor:pointer; font-size:0.75rem; padding: 0 0.2rem;">✕</button>
+            <button onclick="deleteNote(${t.id})" class="notes-delete-btn">✕</button>
         `;
         container.appendChild(item);
     });
@@ -167,7 +160,6 @@ function switchWidgetNotesTab(tab) {
     }
 }
 
-// DETAILSEITE: ALLE NOTIZEN UND SNIPPETS LADEN
 async function loadNotesDetail() {
     try {
         const res = await fetch('modules/notes/api.php?action=get_all_notes');
@@ -197,7 +189,6 @@ function renderNotesTypePills() {
     types.forEach(t => {
         const btn = document.createElement('button');
         btn.className = `btn btn-sm ${activeNotesTypeFilter === t.id ? '' : 'btn-secondary'}`;
-        btn.style.cssText = 'padding: 0.3rem 0.75rem; font-size: 0.8rem;';
         btn.textContent = t.label;
         btn.onclick = () => {
             activeNotesTypeFilter = t.id;
@@ -225,41 +216,41 @@ function renderFilteredNotesDetail() {
     container.innerHTML = '';
 
     if (filtered.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; grid-column: 1/-1; padding: 2rem 0; text-align: center;">Keine Notizen oder Snippets gefunden.</p>';
+        container.innerHTML = '<p class="notes-empty-text full-width">Keine Notizen oder Snippets gefunden.</p>';
         return;
     }
 
     filtered.forEach(n => {
         const card = document.createElement('div');
-        card.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;';
+        card.className = 'notes-card';
 
         const isSnippet = n.type === 'snippet';
-        const typeBadge = isSnippet ? '<span class="badge badge-core">Snippet</span>' : (n.type === 'todo' ? '<span class="badge badge-theme">To-Do</span>' : '<span class="badge badge-zero">Notiz</span>');
+        const typeBadge = isSnippet ? '<span class="badge badge-core">Snippet</span>' : (n.type === 'todo' ? '<span class="badge badge-warning">To-Do</span>' : '<span class="badge badge-zero">Notiz</span>');
 
         let bodyHtml = '';
         if (isSnippet) {
             bodyHtml = `
-                <div style="position: relative; margin: 0.75rem 0;">
-                    <pre style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem; font-family: monospace; font-size: 0.8rem; color: var(--text-main); overflow-x: auto; max-height: 200px; margin: 0;"><code>${escapeHtml(n.content)}</code></pre>
-                    <button onclick="copySnippetToClipboard(this, \`${escapeJs(n.content)}\`)" class="btn btn-sm btn-secondary" style="position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.7rem; padding: 0.2rem 0.4rem;">Kopieren</button>
+                <div class="notes-snippet-wrap">
+                    <pre class="notes-card-code"><code>${escapeHtml(n.content)}</code></pre>
+                    <button onclick="copySnippetToClipboard(this, \`${escapeJs(n.content)}\`)" class="btn btn-sm btn-secondary notes-copy-btn">Kopieren</button>
                 </div>
             `;
         } else {
-            bodyHtml = `<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; margin: 0.75rem 0; max-height: 200px; overflow-y: auto;">${escapeHtml(n.content)}</p>`;
+            bodyHtml = `<p class="notes-card-text">${escapeHtml(n.content)}</p>`;
         }
 
         card.innerHTML = `
             <div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="notes-card-header">
                     ${typeBadge}
-                    <span style="font-size: 0.75rem; color: var(--text-dark);">${escapeHtml(n.category || 'Allgemein')}</span>
+                    <span class="notes-card-category">${escapeHtml(n.category || 'Allgemein')}</span>
                 </div>
-                <h4 style="margin: 0; font-size: 1rem; font-weight: 600;">${escapeHtml(n.title)}</h4>
+                <h4 class="notes-card-title">${escapeHtml(n.title)}</h4>
                 ${bodyHtml}
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+            <div class="notes-card-footer">
                 <button onclick="openEditNoteModal(${n.id})" class="btn btn-sm btn-secondary">Bearbeiten</button>
-                <button onclick="deleteNote(${n.id})" class="btn btn-sm btn-secondary btn-danger">Löschen</button>
+                <button onclick="deleteNote(${n.id})" class="btn btn-sm btn-danger">Löschen</button>
             </div>
         `;
 
