@@ -65,7 +65,7 @@ function renderDashboardTable(sites) {
     tbody.innerHTML = '';
 
     if (!Array.isArray(sites) || sites.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 2rem;">Keine WordPress-Installationen vorhanden.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="table-empty-cell">Keine WordPress-Installationen vorhanden.</td></tr>';
         return;
     }
 
@@ -98,10 +98,10 @@ function renderDashboardTable(sites) {
         tr.innerHTML = `
             <td>${chevronSvg}</td>
             <td>
-                <strong style="color:var(--text-main);">${escapeHtml(site.name)}</strong><br>
-                <a href="${escapeHtml(site.url)}" target="_blank" style="color:var(--text-muted); font-size:0.8rem; text-decoration:none;" onclick="event.stopPropagation();">${escapeHtml(site.url)}</a>
+                <strong class="site-name-text">${escapeHtml(site.name)}</strong><br>
+                <a href="${escapeHtml(site.url)}" target="_blank" class="site-url-link" onclick="event.stopPropagation();">${escapeHtml(site.url)}</a>
             </td>
-            <td style="font-size:0.85rem; color:var(--text-muted);">
+            <td class="site-meta-cell">
                 WP ${escapeHtml(site.wp_version || '?')}<br>
                 PHP ${escapeHtml(site.php_version || '?')}
             </td>
@@ -110,8 +110,8 @@ function renderDashboardTable(sites) {
             <td>${renderCountBadge(pluginCount, 'badge-updates')}</td>
             <td>${renderCountBadge(themeCount, 'badge-theme')}</td>
             <td>${renderCountBadge(transCount)}</td>
-            <td style="font-size:0.85rem; color:var(--text-muted);">${lastCheck}</td>
-            <td style="text-align: right;" onclick="event.stopPropagation();">
+            <td class="site-meta-cell">${lastCheck}</td>
+            <td class="table-actions-cell" onclick="event.stopPropagation();">
                 <button onclick="syncSite(${site.id}, this)" class="btn btn-secondary btn-sm">Sync</button>
                 <button onclick="autologinSite(${site.id})" class="btn btn-sm">Admin</button>
             </td>
@@ -148,8 +148,8 @@ function renderUpdateSection(title, items, badgeClass = '') {
     if (list.length === 0) {
         return `
             <div class="update-card">
-                <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem; color:var(--text-muted);">${title}</h4>
-                <p style="color:var(--status-success-text); font-size:0.85rem; margin:0;">✔ Keine offenen Updates</p>
+                <h4 class="update-card-title muted">${title}</h4>
+                <p class="update-card-ok">✔ Keine offenen Updates</p>
             </div>`;
     }
 
@@ -160,7 +160,7 @@ function renderUpdateSection(title, items, badgeClass = '') {
             try {
                 const parsed = JSON.parse(item.details_json);
                 if (parsed.changelog_url) {
-                    changelog = ` <a href="${parsed.changelog_url}" target="_blank" style="color:var(--primary); font-size:0.75rem;">Changelog</a>`;
+                    changelog = ` <a href="${parsed.changelog_url}" target="_blank" class="changelog-link">Changelog</a>`;
                 }
             } catch(e){}
         }
@@ -168,15 +168,15 @@ function renderUpdateSection(title, items, badgeClass = '') {
         listHtml += `
             <li class="update-item">
                 <div><strong>${escapeHtml(item.item_name || 'Unbekannt')}</strong>${changelog}</div>
-                <div style="color:var(--text-muted); font-size:0.8rem;">
-                    ${escapeHtml(item.current_version || '?')} &rarr; <strong style="color:var(--status-success-text);">${escapeHtml(item.new_version || '?')}</strong>
+                <div class="update-version-text">
+                    ${escapeHtml(item.current_version || '?')} &rarr; <strong class="text-success">${escapeHtml(item.new_version || '?')}</strong>
                 </div>
             </li>`;
     });
 
     return `
         <div class="update-card">
-            <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem;">${title} <span class="badge ${badgeClass || 'badge-updates'}">${list.length}</span></h4>
+            <h4 class="update-card-title">${title} <span class="badge ${badgeClass || 'badge-updates'}">${list.length}</span></h4>
             <ul class="update-list">${listHtml}</ul>
         </div>`;
 }
@@ -187,26 +187,26 @@ function renderVulnerabilityAlert(vulnerabilities) {
     let vulnHtml = '';
     vulnerabilities.forEach(v => {
         const scoreBadge = v.cvss_score 
-            ? `<span style="background:#991b1b; color:#fca5a5; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.75rem; font-weight:bold;">CVSS ${v.cvss_score}</span>` 
+            ? `<span class="cvss-score-badge">CVSS ${v.cvss_score}</span>` 
             : '';
 
         vulnHtml += `
-            <li class="update-item" style="border-color: #7f1d1d;">
+            <li class="update-item vuln-item">
                 <div>
-                    <strong style="color:#f87171;">[${escapeHtml((v.item_type || '').toUpperCase())}] ${escapeHtml(v.item_slug || '')}</strong> 
-                    <span style="color:var(--text-muted); font-size:0.8rem;">(${escapeHtml(v.cve || '')})</span> ${scoreBadge}
+                    <strong class="vuln-slug">[${escapeHtml((v.item_type || '').toUpperCase())}] ${escapeHtml(v.item_slug || '')}</strong> 
+                    <span class="vuln-cve">(${escapeHtml(v.cve || '')})</span> ${scoreBadge}
                 </div>
-                <div style="font-size:0.85rem; margin-top:0.2rem;">${escapeHtml(v.title || '')}</div>
-                <div style="color:var(--text-muted); font-size:0.8rem; margin-top:0.1rem;">
-                    Betrifft installierte Version &bull; <strong style="color:#10b981;">Gefixt ab Version: ${escapeHtml(v.fixed_in || 'Unbekannt')}</strong>
+                <div class="vuln-title">${escapeHtml(v.title || '')}</div>
+                <div class="vuln-fix-text">
+                    Betrifft installierte Version &bull; <strong class="text-success">Gefixt ab Version: ${escapeHtml(v.fixed_in || 'Unbekannt')}</strong>
                 </div>
             </li>`;
     });
 
     return `
-        <div style="background:var(--status-danger-bg); border: 1px solid rgba(239, 68, 68, 0.4); border-radius:6px; padding:1rem; margin-bottom:1rem;">
-            <h4 style="margin:0 0 0.5rem 0; color:var(--status-danger-text); font-size:0.95rem; display:flex; align-items:center; gap:0.5rem;">
-                ⚠️ Bekannte Sicherheitslücken (WPVulnerability) <span class="badge" style="background:#ef4444; color:white;">${vulnerabilities.length}</span>
+        <div class="vuln-alert-box">
+            <h4 class="vuln-alert-title">
+                ⚠️ Bekannte Sicherheitslücken (WPVulnerability) <span class="badge badge-updates">${vulnerabilities.length}</span>
             </h4>
             <ul class="update-list">${vulnHtml}</ul>
         </div>`;
@@ -240,9 +240,9 @@ function renderSettingsTable(sites) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><strong>${escapeHtml(site.name)}</strong></td>
-            <td><a href="${escapeHtml(site.url)}" target="_blank" style="color:var(--text-main);">${escapeHtml(site.url)}</a></td>
-            <td><code style="background:var(--bg-body); padding:0.2rem 0.4rem; border-radius:4px; font-size:0.85rem;">${escapeHtml((site.api_key || '').substring(0, 8))}...</code></td>
-            <td style="text-align: right;">
+            <td><a href="${escapeHtml(site.url)}" target="_blank" class="site-url-link">${escapeHtml(site.url)}</a></td>
+            <td><code class="code-badge">${escapeHtml((site.api_key || '').substring(0, 8))}...</code></td>
+            <td class="table-actions-cell">
                 <button onclick="openEditModal(${site.id})" class="btn btn-secondary btn-sm">Bearbeiten</button>
                 <button onclick="deleteSite(${site.id})" class="btn btn-danger btn-sm">Löschen</button>
             </td>
