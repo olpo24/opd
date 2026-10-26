@@ -24,8 +24,13 @@ try {
             $moduleSummaries = [];
 
             // Alle Modul-APIs automatisch aufrufen
-            $moduleDirs = glob(__DIR__ . '/modules/*', GLOB_ONLYDIR);
+           $moduleDirs = glob(__DIR__ . '/modules/*', GLOB_ONLYDIR);
+            $moduleSummaries = [];
+
             foreach ($moduleDirs as $dir) {
+            if (file_exists($dir . '/.disabled')) {
+        continue; // Deaktiviertes Modul ignoriere
+    }
                 $modName = basename($dir);
                 $apiFile = $dir . '/api.php';
                 
