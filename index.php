@@ -98,7 +98,10 @@ foreach ($moduleDirs as $dir) {
     </button>
 
     <button id="theme-toggle" class="theme-toggle-btn" title="Farbschema wechseln"></button>
-    <button id="btn-register-passkey" class="btn btn-secondary btn-sm">Passkey</button>
+    <!-- Schnellzugriff auf das Passkey-Modul -->
+<button class="header-icon-btn" onclick="switchView('passkey')" title="Passkeys & Biometrie">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-2-2l2 2m2 0l-3 3m-3-3l3 3M3 21l9-9m0 0l-2-2m2 2l2 2"/></svg>
+</button>
     <a href="logout.php" class="btn btn-secondary btn-sm btn-danger">Abmelden</a>
 </div>
             </header>
