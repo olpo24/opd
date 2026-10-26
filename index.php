@@ -7,6 +7,11 @@ $modules = [];
 $moduleDirs = glob(__DIR__ . '/modules/*', GLOB_ONLYDIR);
 
 foreach ($moduleDirs as $dir) {
+    // Wenn das Modul deaktiviert ist (.disabled Datei existiert), komplett überspringen
+    if (file_exists($dir . '/.disabled')) {
+        continue;
+    }
+
     $manifestPath = $dir . '/module.json';
     if (file_exists($manifestPath)) {
         $manifest = json_decode(file_get_contents($manifestPath), true);
