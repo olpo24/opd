@@ -198,23 +198,35 @@ body {
     justify-content: center;
 }
 
-/* Collapsed Sidebar State */
+/* Sidebar Collapse Transition Rules */
 body.sidebar-collapsed .app-sidebar {
-    width: var(--sidebar-width-collapsed);
+    width: var(--sidebar-width-collapsed, 72px) !important;
+}
+
+body.sidebar-collapsed .app-main {
+    margin-left: var(--sidebar-width-collapsed, 72px) !important;
 }
 
 body.sidebar-collapsed .brand-text,
 body.sidebar-collapsed .nav-section-title,
-body.sidebar-collapsed .nav-item span {
+body.sidebar-collapsed .nav-item span:not(.nav-icon) {
     opacity: 0;
-    pointer-events: none;
+    visibility: hidden;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
     display: none;
 }
 
-body.sidebar-collapsed .app-main {
-    margin-left: var(--sidebar-width-collapsed);
+body.sidebar-collapsed .nav-item {
+    justify-content: center;
+    padding: 0.65rem 0;
 }
 
+body.sidebar-collapsed .sidebar-header {
+    justify-content: center;
+    padding: 0;
+}
 /* Main Content Wrapper */
 .app-main {
     flex: 1;
