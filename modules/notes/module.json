@@ -1,0 +1,11 @@
+{
+  "id": "notes",
+  "name": "Quick Notes",
+  "has_view": true,
+  "widget": {
+    "default_w": 4,
+    "default_h": 4,
+    "min_w": 3,
+    "min_h": 3
+  }
+}
